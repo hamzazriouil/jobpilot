@@ -1,0 +1,15 @@
+{
+  "id": "001-strong-worldwide",
+  "cvText": "Nour El Idrissi\nJunior Full-Stack Developer (TypeScript, Python, LLMs)\nFes, Morocco · nour.elidrissi@example.com · https://github.com/example-nour\n\nPROFILE\nRecent Computer Science graduate with a 6-month full-stack internship and several shipped side projects that use LLM APIs.\n\nEXPERIENCE\nFull-Stack Developer Intern, Medina Pay (fintech startup), Fes · Feb 2025 – Jul 2025\n- Built React and TypeScript screens for the merchant dashboard, connected to a Node.js (Express) REST API.\n- Wrote PostgreSQL migrations and SQL reports for the finance team.\n- Wrote Jest unit tests for the payment-reconciliation module and fixed 30+ bugs from the backlog.\n- Worked in a Git flow with pull requests and code reviews on GitHub.\n\nPROJECTS\nStudyBuddy, AI flashcard generator (Next.js, Cloudflare Workers, Gemini API) · 2025\n- Generates flashcards from lecture PDFs with the Gemini API and stores decks in Cloudflare D1; used by about 200 students at my university.\n\nJobFeed API (Python, FastAPI, PostgreSQL) · 2024\n- REST API that aggregates public job feeds, deduplicates postings and exposes search endpoints; deployed on a Linux VPS.\n\nPortfolio site (Next.js, Tailwind CSS) · 2024\n\nEDUCATION\nBachelor's degree in Computer Science, Fes Institute of Computing · 2021 – 2025\n\nSKILLS\nLanguages: JavaScript, TypeScript, Python, SQL\nFrameworks: React, Next.js, Node.js, Express, FastAPI, Tailwind CSS\nData: PostgreSQL, Cloudflare D1\nTools: Git, GitHub, Jest, Linux, Cloudflare Workers\nAI: Gemini API, OpenAI API, prompt engineering\nSpoken languages: Arabic (native), French (fluent), English (fluent)",
+  "jobText": "Junior Full-Stack Developer\nTidewell · Remote (worldwide) · Full-time\n\nTidewell builds booking software for small surf and dive schools. We are a fully remote team of 9 spread over 7 countries, and we hire from anywhere in the world.\n\nWhat you'll do\n- Build features in our Next.js front end and Node.js API.\n- Write SQL and keep our PostgreSQL database healthy.\n- Ship small improvements every week and talk to customers about them.\n\nRequirements\n- Good knowledge of JavaScript and TypeScript.\n- Experience building interfaces with React.\n- Experience with Node.js on the back end.\n- Comfortable writing SQL queries (we use PostgreSQL).\n- Comfortable with Git and code reviews.\n- Good written English.\n\nNice to have\n- Next.js.\n- Cloudflare Workers or other edge platforms.\n- You have used an LLM API (OpenAI, Gemini, Claude) in a project.\n- Some Python.\n\nLocation\nWork from anywhere in the world. We pay contractors through Deel in USD.\n\nSalary: 28,000–36,000 USD per year.",
+  "country": "MA",
+  "expected": {
+    "eligibility": "eligible",
+    "band": "strong"
+  },
+  "tags": [
+    "strong",
+    "worldwide",
+    "location"
+  ]
+}

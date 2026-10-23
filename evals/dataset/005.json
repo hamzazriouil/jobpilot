@@ -1,0 +1,16 @@
+{
+  "id": "005-eu-work-auth-fr",
+  "cvText": "Camille Roux\nFull-Stack Engineer\nLyon, France · camille.roux@example.com · https://github.com/example-camille\n\nEXPERIENCE\nFull-Stack Engineer, Routeo (B2B logistics SaaS), Lyon · Jan 2022 – present\n- Build features across a TypeScript / Node.js (NestJS) back end and a React front end for a shipment-booking platform.\n- Designed an event-driven billing pipeline with RabbitMQ that processes about 50,000 invoices a month.\n- Own PostgreSQL schema changes and query tuning; cut the slowest report from 40 s to 3 s.\n- Run services on AWS (ECS, RDS, SQS) with Docker and Terraform; on call one week a month.\n- Write unit and integration tests with Jest and Playwright; mentor two junior developers.\n\nJunior Web Developer, Atelier Lumen (web agency), Lyon · Sep 2020 – Dec 2021\n- Built React and Node.js websites and back offices for more than 10 clients.\n\nEDUCATION\nMaster's degree in Computer Science, Lyon · 2018 – 2020\n\nSKILLS\nTypeScript, JavaScript, Node.js, NestJS, React, PostgreSQL, RabbitMQ, AWS, Docker, Terraform, Jest, Playwright\nLanguages: French (native), English (fluent, C1)",
+  "jobText": "Full-Stack Engineer\nVeloria · Remote within the European Union · Full-time\n\nVeloria is a Paris-based company that builds invoicing and payment software for European freelancers. 40,000 freelancers use us every month.\n\nYour mission\n- Build product features across our TypeScript back end and React front end.\n- Own services end to end: design, tests, deployment and monitoring.\n\nMust have\n- 3+ years of professional experience as a full-stack engineer.\n- TypeScript and Node.js on the back end.\n- React on the front end.\n- PostgreSQL.\n- Automated testing (unit and integration tests).\n- Experience with message queues (RabbitMQ, Kafka or SQS).\n- Running services on AWS in production.\n- Professional English.\n\nNice to have\n- French.\n- Docker.\n- GraphQL.\n\nLocation\nRemote within the European Union. You must already have the right to work in the EU: we cannot sponsor visas. We meet in Paris twice a year (travel paid).\n\nSalary: 55,000–70,000 EUR + equity.",
+  "country": "FR",
+  "expected": {
+    "eligibility": "eligible",
+    "band": "strong"
+  },
+  "tags": [
+    "eu-only",
+    "work-auth",
+    "location",
+    "strong"
+  ]
+}

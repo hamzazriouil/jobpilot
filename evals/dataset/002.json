@@ -1,0 +1,15 @@
+{
+  "id": "002-us-only",
+  "cvText": "Nour El Idrissi\nJunior Full-Stack Developer (TypeScript, Python, LLMs)\nFes, Morocco · nour.elidrissi@example.com · https://github.com/example-nour\n\nPROFILE\nRecent Computer Science graduate with a 6-month full-stack internship and several shipped side projects that use LLM APIs.\n\nEXPERIENCE\nFull-Stack Developer Intern, Medina Pay (fintech startup), Fes · Feb 2025 – Jul 2025\n- Built React and TypeScript screens for the merchant dashboard, connected to a Node.js (Express) REST API.\n- Wrote PostgreSQL migrations and SQL reports for the finance team.\n- Wrote Jest unit tests for the payment-reconciliation module and fixed 30+ bugs from the backlog.\n- Worked in a Git flow with pull requests and code reviews on GitHub.\n\nPROJECTS\nStudyBuddy, AI flashcard generator (Next.js, Cloudflare Workers, Gemini API) · 2025\n- Generates flashcards from lecture PDFs with the Gemini API and stores decks in Cloudflare D1; used by about 200 students at my university.\n\nJobFeed API (Python, FastAPI, PostgreSQL) · 2024\n- REST API that aggregates public job feeds, deduplicates postings and exposes search endpoints; deployed on a Linux VPS.\n\nPortfolio site (Next.js, Tailwind CSS) · 2024\n\nEDUCATION\nBachelor's degree in Computer Science, Fes Institute of Computing · 2021 – 2025\n\nSKILLS\nLanguages: JavaScript, TypeScript, Python, SQL\nFrameworks: React, Next.js, Node.js, Express, FastAPI, Tailwind CSS\nData: PostgreSQL, Cloudflare D1\nTools: Git, GitHub, Jest, Linux, Cloudflare Workers\nAI: Gemini API, OpenAI API, prompt engineering\nSpoken languages: Arabic (native), French (fluent), English (fluent)",
+  "jobText": "Frontend Engineer\nHarborline Health · Remote (US only) · Full-time\n\nHarborline Health makes scheduling software for physical-therapy clinics across the United States.\n\nRequirements\n- 2+ years of professional experience as a frontend engineer.\n- Strong React and TypeScript.\n- Solid CSS skills (Tailwind or CSS modules).\n- Experience building accessible interfaces (WCAG 2.1 AA).\n- Experience testing UIs with React Testing Library or Playwright.\n\nNice to have\n- Next.js.\n- GraphQL.\n- Storybook and design systems.\n\nLocation\nThis role is remote within the United States only. Candidates must be authorized to work in the United States; we are unable to sponsor visas now or in the future.\n\nBenefits: health, dental and vision insurance, 401(k) matching. Salary range: 105,000–130,000 USD.",
+  "country": "MA",
+  "expected": {
+    "eligibility": "not_eligible",
+    "band": "stretch"
+  },
+  "tags": [
+    "us-only",
+    "work-auth",
+    "location"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jobpilot-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      // Lets OpenNext call back into this same Worker (used by its caching layer).
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "jobpilot-web"
+    }
+  ],
+  // Workers AI (docs/05-ARCHITECTURE.md §4.1, §15). Not a secret: a binding.
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Non-secret vars only. Secrets go through `npx wrangler secret put NAME`
+  // (see .dev.vars.example for the full list).
+  "vars": {
+    "APP_URL": "https://jobpilot-web.workers.dev"
+  }
+}

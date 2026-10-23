@@ -1,0 +1,52 @@
+# Local env vars for `next dev` / `opennextjs-cloudflare preview` / `wrangler dev`.
+# Copy to `.dev.vars` (gitignored) and fill in. NEVER commit real values.
+# Production: plain vars go in wrangler.jsonc "vars"; secrets via `npx wrangler secret put NAME`.
+# Source of truth: docs/05-ARCHITECTURE.md §15.
+#
+# Note: the Workers AI binding `AI` is NOT an env var. It is declared in wrangler.jsonc ("ai": { "binding": "AI" }).
+
+# --- Phase 0 ---
+
+# Public base URL of the app, e.g. http://localhost:3000 locally, https://jobpilot-web.<subdomain>.workers.dev in prod.
+APP_URL=
+# Supabase service-role key. SERVER ONLY (quota + llm_calls logging). Never expose to the client.
+SUPABASE_SERVICE_ROLE_KEY=
+# Gemini API key from Google AI Studio (free tier). Primary LLM provider.
+GOOGLE_GENERATIVE_AI_API_KEY=
+# Random secret (>= 32 bytes) used to HMAC-sign analysis tokens between /api/analyze and /api/draft.
+ANALYSIS_TOKEN_SECRET=
+# Random secret used as the daily salt base for hashing IPs (we never store raw IPs).
+IP_HASH_SALT=
+
+# --- Phase 1 ---
+
+# Supabase project URL (safe to expose to the browser).
+NEXT_PUBLIC_SUPABASE_URL=
+# Supabase anon (public) key, protected by RLS (safe to expose to the browser).
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# --- Phase 2 ---
+
+# Anthropic API key, used only for paid users (and the evals baseline).
+ANTHROPIC_API_KEY=
+# "true" to route paid users to Claude. Leave "false" until there is revenue.
+CLAUDE_ENABLED=
+# Dodo Payments API key.
+DODO_API_KEY=
+# Dodo webhook signing secret (Standard Webhooks) for /api/webhooks/dodo.
+DODO_WEBHOOK_SECRET=
+# Dodo product ID for the Sprint 30 pass.
+DODO_PRODUCT_SPRINT30=
+# Dodo product ID for the Sprint 90 pass.
+DODO_PRODUCT_SPRINT90=
+# Dodo environment: "test" or "live".
+DODO_ENV=
+
+# --- Phase 3 ---
+
+# Comma-separated list of emails allowed to open /admin.
+ADMIN_EMAILS=
+
+# --- Not used by web (listed for completeness; belongs to workers/ingest) ---
+# Resend API key for digest emails. Set it on the ingest Worker, not here.
+# RESEND_API_KEY=

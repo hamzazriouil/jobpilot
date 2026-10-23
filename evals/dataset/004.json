@@ -1,0 +1,15 @@
+{
+  "id": "004-eu-work-auth-ma",
+  "cvText": "Nour El Idrissi\nJunior Full-Stack Developer (TypeScript, Python, LLMs)\nFes, Morocco · nour.elidrissi@example.com · https://github.com/example-nour\n\nPROFILE\nRecent Computer Science graduate with a 6-month full-stack internship and several shipped side projects that use LLM APIs.\n\nEXPERIENCE\nFull-Stack Developer Intern, Medina Pay (fintech startup), Fes · Feb 2025 – Jul 2025\n- Built React and TypeScript screens for the merchant dashboard, connected to a Node.js (Express) REST API.\n- Wrote PostgreSQL migrations and SQL reports for the finance team.\n- Wrote Jest unit tests for the payment-reconciliation module and fixed 30+ bugs from the backlog.\n- Worked in a Git flow with pull requests and code reviews on GitHub.\n\nPROJECTS\nStudyBuddy, AI flashcard generator (Next.js, Cloudflare Workers, Gemini API) · 2025\n- Generates flashcards from lecture PDFs with the Gemini API and stores decks in Cloudflare D1; used by about 200 students at my university.\n\nJobFeed API (Python, FastAPI, PostgreSQL) · 2024\n- REST API that aggregates public job feeds, deduplicates postings and exposes search endpoints; deployed on a Linux VPS.\n\nPortfolio site (Next.js, Tailwind CSS) · 2024\n\nEDUCATION\nBachelor's degree in Computer Science, Fes Institute of Computing · 2021 – 2025\n\nSKILLS\nLanguages: JavaScript, TypeScript, Python, SQL\nFrameworks: React, Next.js, Node.js, Express, FastAPI, Tailwind CSS\nData: PostgreSQL, Cloudflare D1\nTools: Git, GitHub, Jest, Linux, Cloudflare Workers\nAI: Gemini API, OpenAI API, prompt engineering\nSpoken languages: Arabic (native), French (fluent), English (fluent)",
+  "jobText": "Full-Stack Engineer\nVeloria · Remote within the European Union · Full-time\n\nVeloria is a Paris-based company that builds invoicing and payment software for European freelancers. 40,000 freelancers use us every month.\n\nYour mission\n- Build product features across our TypeScript back end and React front end.\n- Own services end to end: design, tests, deployment and monitoring.\n\nMust have\n- 3+ years of professional experience as a full-stack engineer.\n- TypeScript and Node.js on the back end.\n- React on the front end.\n- PostgreSQL.\n- Automated testing (unit and integration tests).\n- Experience with message queues (RabbitMQ, Kafka or SQS).\n- Running services on AWS in production.\n- Professional English.\n\nNice to have\n- French.\n- Docker.\n- GraphQL.\n\nLocation\nRemote within the European Union. You must already have the right to work in the EU: we cannot sponsor visas. We meet in Paris twice a year (travel paid).\n\nSalary: 55,000–70,000 EUR + equity.",
+  "country": "MA",
+  "expected": {
+    "eligibility": "not_eligible",
+    "band": "stretch"
+  },
+  "tags": [
+    "eu-only",
+    "work-auth",
+    "location"
+  ]
+}
