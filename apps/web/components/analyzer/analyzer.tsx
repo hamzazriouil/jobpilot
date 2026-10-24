@@ -467,6 +467,10 @@ function RunStatus({ status, error }: { status: 'streaming' | 'done' | 'error'; 
     content = <span className={TONE_CLASSES.good.text}>{`${TONE_GLYPH.good} ${s.done}`}</span>;
   } else if (error?.code === 'aborted') {
     content = <span className={QUIET_TEXT}>{`■ ${s.stopped}`}</span>;
+  } else if (error?.code === 'quota_exceeded' || error?.code === 'busy' || error?.code === 'bad_input') {
+    // Not a failure of the analysis: a limit, a busy provider or an input to fix (calm tone, 03-UI-UX §7).
+    const label = error.code === 'quota_exceeded' ? s.limit : error.code === 'busy' ? s.busy : s.checkInput;
+    content = <span className={TONE_CLASSES.warn.text}>{`${TONE_GLYPH.warn} ${label}`}</span>;
   } else {
     content = <span className={TONE_CLASSES.bad.text}>{`${TONE_GLYPH.bad} ${s.failed}`}</span>;
   }

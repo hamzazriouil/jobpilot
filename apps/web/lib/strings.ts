@@ -91,7 +91,15 @@ export const strings = {
     jobLine: (title: string, company: string | null | undefined) => (company ? `${title} · ${company}` : title),
     meta: (model: string, promptVersion: string) => `model ${model} · prompt ${promptVersion}`,
     /** Mono run status on the right of the results header (decorative; progress is announced separately). */
-    runStatus: { streaming: 'streaming', done: 'done', stopped: 'stopped', failed: 'failed' },
+    runStatus: {
+      streaming: 'streaming',
+      done: 'done',
+      stopped: 'stopped',
+      failed: 'failed',
+      limit: 'daily limit reached',
+      busy: 'busy, try again soon',
+      checkInput: 'check your input',
+    },
     levels: { intern: 'Intern', junior: 'Junior', mid: 'Mid', senior: 'Senior', lead: 'Lead' },
     sources: {
       experience: 'experience',
