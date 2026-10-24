@@ -24,6 +24,8 @@
   },
   // Non-secret vars only. Secrets go through `npx wrangler secret put NAME`
   // (see .dev.vars.example for the full list).
+  // Phase 0 also needs NEXT_PUBLIC_SUPABASE_URL here (or as a secret) for quota + llm_calls logging.
+  // Optional: GEMINI_MODEL, GEMINI_THINKING_LEVEL (defaults live in packages/core/src/llm/providers.ts).
   "vars": {
     "APP_URL": "https://jobpilot-web.workers.dev"
   }

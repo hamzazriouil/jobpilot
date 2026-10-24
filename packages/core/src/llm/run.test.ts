@@ -478,4 +478,67 @@ describe('runLLM (structured, stream)', () => {
     }).catch((e: unknown) => e);
     expect((err as LlmError).code).toBe('busy');
   });
+
+  /** First token arrives, then the provider reports an in-stream error (Gemini's "high demand" 503). */
+  function midStreamFailure(modelId: string, statusCode: number) {
+    return new MockLanguageModelV4({
+      provider: modelId,
+      modelId,
+      doStream: async () => ({
+        stream: simulateReadableStream({
+          chunks: [
+            { type: 'text-start' as const, id: 't1' },
+            { type: 'text-delta' as const, id: 't1', delta: '{"score":10' },
+            { type: 'error' as const, error: { name: 'AI_StreamProviderError', statusCode, message: 'high demand' } },
+          ],
+        }),
+      }),
+    });
+  }
+
+  it('falls back to the next provider when a structured stream fails mid-way with a retryable error', async () => {
+    const sink = memorySink();
+    const res = await runLLM({
+      ...baseOpts(
+        { gemini: { languageModel: midStreamFailure('gemini-test', 503) }, workers: { languageModel: streamModel('workers-test', deltas) } },
+        sink,
+      ),
+      schema: Schema,
+      stream: true,
+    });
+    expect(res.provider).toBe('gemini'); // first token came from gemini
+    const partials = await collect(res.partialObjectStream);
+    expect(partials[0]).toEqual({ score: 10 });
+    expect(partials.at(-1)).toEqual({ score: 72, label: 'good' }); // restarted from workers' output
+    const final = await res.final;
+    expect([final.provider, final.object]).toEqual(['workers', { score: 72, label: 'good' }]);
+    expect(sink.rows.map((r) => [r.provider, r.error_code])).toEqual([
+      ['gemini', 'http_503'],
+      ['workers', null],
+    ]);
+  });
+
+  it('keeps a mid-way failure final in text mode (delivered deltas cannot be taken back)', async () => {
+    const res = await runLLM({
+      ...baseOpts(
+        { gemini: { languageModel: midStreamFailure('g', 503) }, workers: { languageModel: streamModel('w', ['hello']) } },
+        memorySink(),
+      ),
+      stream: true,
+    });
+    await collect(res.textStream);
+    expect(((await res.final.catch((e: unknown) => e)) as LlmError).code).toBe('provider_error');
+  });
+
+  it('streams plain text (no JSON response format) for providers without native structured streaming', async () => {
+    const model = streamModel('workers-test', ['```json\n', ...deltas, '\n```']);
+    const res = await runLLM({
+      ...baseOpts({ workers: { languageModel: model, nativeStructuredStream: false } }, memorySink(), { country: 'DE' }),
+      schema: Schema,
+      stream: true,
+    });
+    expect((await collect(res.partialObjectStream)).length).toBeGreaterThan(1);
+    expect((await res.final).object).toEqual({ score: 72, label: 'good' });
+    expect(model.doStreamCalls[0]?.responseFormat?.type ?? 'text').toBe('text');
+  });
 });

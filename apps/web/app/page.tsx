@@ -1,88 +1,61 @@
-import { ArrowRight } from 'lucide-react';
-import { BRAND_NAME } from '@jobpilot/core/brand';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import { headers } from 'next/headers';
+import { COUNTRY_REGIONS, normalizeCountryCode } from '@jobpilot/core/regions';
+import { Analyzer, type CountryOption } from '@/components/analyzer/analyzer';
+import { LandingSections } from '@/components/landing-sections';
+import { SiteFooter } from '@/components/site-footer';
+import { SiteHeader } from '@/components/site-header';
 import { strings } from '@/lib/strings';
 
-// Placeholder landing page (Day 1). The real AnalyzerForm arrives on Day 2.
-export default function HomePage() {
+// Landing + analyzer + results (docs/03-UI-UX.md §4.1–4.2). The page itself is a server
+// component; everything interactive lives in <Analyzer>.
+
+/** Used when Cloudflare's geo header is missing (local dev) or not a country we know. */
+const FALLBACK_COUNTRY = 'MA';
+
+/** Country names are resolved here on the server so client and server HTML always match. */
+function countryOptions(): CountryOption[] {
+  let names: Intl.DisplayNames | null = null;
+  try {
+    names = new Intl.DisplayNames(['en'], { type: 'region' });
+  } catch {
+    names = null;
+  }
+  return Object.keys(COUNTRY_REGIONS)
+    .map((code) => {
+      let name = code;
+      try {
+        name = names?.of(code) ?? code;
+      } catch {
+        // unknown to this ICU build: keep the code
+      }
+      return { code, name };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+}
+
+export default async function HomePage() {
   const s = strings;
-  const year = new Date().getFullYear();
+  const countries = countryOptions();
+  // Pre-select the visitor's country from Cloudflare's geo header; the user can change it.
+  const geo = normalizeCountryCode((await headers()).get('cf-ipcountry') ?? '');
+  const defaultCountry = geo && countries.some((c) => c.code === geo) ? geo : FALLBACK_COUNTRY;
 
   return (
     <div className="flex min-h-dvh flex-col text-base">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4">
-          <a href="/" aria-label={s.header.homeAriaLabel} className="flex items-center gap-2">
-            <span
-              aria-hidden="true"
-              className="grid size-7 place-items-center rounded-md bg-primary font-mono text-sm font-semibold text-primary-foreground"
-            >
-              {BRAND_NAME.charAt(0)}
-            </span>
-            <span className="font-semibold tracking-tight">{s.header.brand}</span>
-          </a>
-          <Badge variant="secondary" className="font-mono">
-            {s.header.comingSoonBadge}
-          </Badge>
-        </div>
-      </header>
+      <SiteHeader />
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:py-16">
         <section className="max-w-2xl">
-          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-            {s.hero.title}
-          </h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{s.hero.title}</h1>
           <p className="mt-4 text-pretty text-muted-foreground">{s.hero.subtitle}</p>
-          <p className="mt-3 font-mono text-xs text-muted-foreground">{s.hero.trustLine}</p>
         </section>
 
-        <section aria-label={s.analyzer.sectionAriaLabel} className="mt-10">
-          <Card>
-            <CardContent className="grid gap-6 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label htmlFor="cv" className="font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {s.analyzer.cvLabel}
-                </label>
-                <Textarea id="cv" disabled placeholder={s.analyzer.cvPlaceholder} className="min-h-40 md:min-h-56" />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="job" className="font-mono text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {s.analyzer.jobLabel}
-                </label>
-                <Textarea id="job" disabled placeholder={s.analyzer.jobPlaceholder} className="min-h-40 md:min-h-56" />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">{s.analyzer.comingSoonNote}</p>
-              <Button disabled className="sm:w-auto">
-                {s.analyzer.submit}
-                <ArrowRight aria-hidden="true" />
-              </Button>
-            </CardFooter>
-          </Card>
-        </section>
+        <Analyzer countries={countries} defaultCountry={defaultCountry} />
+
+        <LandingSections />
       </main>
 
-      <footer className="border-t">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>{s.footer.copyright(year)}</p>
-          <p className="flex items-center gap-2">
-            <span>{s.footer.builtWith}</span>
-            <span aria-hidden="true">·</span>
-            <a
-              href={s.footer.sourceHref}
-              className="underline-offset-4 hover:text-foreground hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {s.footer.sourceLink}
-            </a>
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

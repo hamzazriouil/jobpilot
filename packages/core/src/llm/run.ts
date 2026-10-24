@@ -13,7 +13,7 @@ import type { z } from 'zod';
 import { estimateCost, type LlmUsage } from './cost';
 import { LlmError, LlmTimeoutError, type LlmAttemptSummary, type LlmErrorCode } from './errors';
 import { noopSink, safeRecord, type LlmCallSink } from './log';
-import { resolveModel, type ProviderConfig, type ProviderKey, type ResolvedModel } from './providers';
+import { resolveModels, type ProviderConfig, type ProviderKey, type ResolvedModel } from './providers';
 import { classifyError, pickProviderOrder, type ClassifiedError, type LlmPlan } from './router';
 import { buildRepairMessage, parseWithSchema } from './validate';
 
@@ -69,7 +69,10 @@ export interface LlmTextResult extends LlmCallMeta {
 }
 
 export interface LlmObjectStreamResult<T> {
-  /** Provider the stream is committed to (the first token has already arrived). */
+  /**
+   * Provider whose first token has arrived. A retryable failure mid-stream can still move to the
+   * next provider (the partials then restart from that provider's output): `final` says who answered.
+   */
   provider: ProviderKey;
   model: string;
   /** Partial objects parsed from the streamed JSON (not validated). Single consumer. */
@@ -129,6 +132,11 @@ function createContext(opts: RunLLMBaseOptions): RunContext {
     failures: [],
     timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
   };
+}
+
+/** Models to try, in route order; a provider may contribute several (Gemini main model + fallbacks). */
+function candidateModels(ctx: RunContext): ResolvedModel[] {
+  return ctx.order.flatMap((key) => resolveModels(key, ctx.opts.providers));
 }
 
 function normUsage(u: LanguageModelUsage | undefined): LlmUsage {
@@ -356,9 +364,7 @@ async function repairOnProvider<S extends z.ZodType>(
 
 async function runGenerate(ctx: RunContext, schema: z.ZodType | undefined): Promise<LlmObjectResult<unknown> | LlmTextResult> {
   let anyConfigured = false;
-  for (const key of ctx.order) {
-    const resolved = resolveModel(key, ctx.opts.providers);
-    if (!resolved) continue;
+  for (const resolved of candidateModels(ctx)) {
     anyConfigured = true;
 
     if (!schema) {
@@ -452,24 +458,46 @@ function applyPart(part: StreamPart, st: StreamState): string | null {
   }
 }
 
-async function runStream(
+/** One provider stream that has produced its first token. */
+interface OpenStream {
+  resolved: ResolvedModel;
+  attemptIndex: number;
+  started: number;
+  reader: ReadableStreamDefaultReader<StreamPart>;
+  st: StreamState;
+  streamDone: boolean;
+  ac: AbortController;
+  totalTimer: ReturnType<typeof setTimeout>;
+}
+
+function closeStream(s: OpenStream): void {
+  clearTimeout(s.totalTimer);
+  s.ac.abort();
+  s.reader.cancel().catch(() => {});
+}
+
+/**
+ * Phase 1 over `candidates[from..]`: starts each stream and waits for its first token. Retryable
+ * failures move on to the next candidate; a non-retryable one throws. Returns null when every
+ * remaining candidate failed.
+ */
+async function openFirstToken(
   ctx: RunContext,
+  candidates: ResolvedModel[],
+  from: number,
   schema: z.ZodType | undefined,
-): Promise<LlmObjectStreamResult<unknown> | LlmTextStreamResult> {
-  const streamTimeoutMs = ctx.opts.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS;
-  let anyConfigured = false;
-
-  for (const key of ctx.order) {
-    const resolved = resolveModel(key, ctx.opts.providers);
-    if (!resolved) continue;
-    anyConfigured = true;
-
+  streamTimeoutMs: number,
+): Promise<{ stream: OpenStream; next: number } | null> {
+  for (let i = from; i < candidates.length; i++) {
+    const resolved = candidates[i]!;
     const attemptIndex = ctx.attemptCount++;
     const started = Date.now();
     const ac = new AbortController();
     const totalTimer = setTimeout(() => ac.abort(new LlmTimeoutError(streamTimeoutMs)), streamTimeoutMs);
     const base = baseCallOptions(ctx, resolved, ac.signal);
-    const result = schema
+    // Providers without a streaming JSON mode (Workers AI) stream plain text; the partial-JSON parse
+    // and the final schema validation work the same on it.
+    const result = schema && resolved.nativeStructuredStream
       ? streamText({
           ...base,
           prompt: ctx.opts.prompt,
@@ -477,26 +505,31 @@ async function runStream(
           onError: () => {}, // errors are read from the stream parts below
         })
       : streamText({ ...base, prompt: ctx.opts.prompt, onError: () => {} });
-    const reader = (result.stream as ReadableStream<StreamPart>).getReader();
-    const st: StreamState = { text: '', usage: undefined };
-    let streamDone = false;
+    const s: OpenStream = {
+      resolved,
+      attemptIndex,
+      started,
+      reader: (result.stream as ReadableStream<StreamPart>).getReader(),
+      st: { text: '', usage: undefined },
+      streamDone: false,
+      ac,
+      totalTimer,
+    };
 
-    // Phase 1: wait for the first token. Failures here fall back to the next provider.
     try {
       await withTimeout(ctx.timeoutMs, async () => {
-        while (st.text === '') {
-          const { done, value } = await reader.read();
+        while (s.st.text === '') {
+          const { done, value } = await s.reader.read();
           if (done) {
-            streamDone = true;
+            s.streamDone = true;
             return;
           }
-          applyPart(value, st);
+          applyPart(value, s.st);
         }
       });
+      return { stream: s, next: i + 1 };
     } catch (e) {
-      clearTimeout(totalTimer);
-      ac.abort();
-      reader.cancel().catch(() => {});
+      closeStream(s);
       const classified = classifyError(e);
       recordAttempt(ctx, resolved, attemptIndex, started, {
         usage: NO_USAGE,
@@ -505,54 +538,93 @@ async function runStream(
       });
       if (!classified.retryable) throw nonRetryableError(ctx, resolved, classified, e);
       ctx.failures.push(classified);
-      continue;
+    }
+  }
+  return null;
+}
+
+async function runStream(
+  ctx: RunContext,
+  schema: z.ZodType | undefined,
+): Promise<LlmObjectStreamResult<unknown> | LlmTextStreamResult> {
+  const streamTimeoutMs = ctx.opts.streamTimeoutMs ?? DEFAULT_STREAM_TIMEOUT_MS;
+  const candidates = candidateModels(ctx);
+
+  // Phase 1: wait for the first token. Failures here fall back to the next provider.
+  const opened = await openFirstToken(ctx, candidates, 0, schema, streamTimeoutMs);
+  if (!opened) throw exhaustedError(ctx, candidates.length > 0);
+  const firstResolved = opened.stream.resolved;
+  let s = opened.stream;
+  let next = opened.next;
+
+  // Phase 2: pump the rest in the background. A retryable failure mid-way (e.g. Gemini's in-stream
+  // 503 "high demand") falls back to the next candidate in structured mode only: each partial is the
+  // whole object so far, so the consumer just re-renders from the new provider's first partial.
+  // In text mode the deltas already delivered can't be taken back, so mid-way errors are final.
+  const queue = new AsyncQueue<unknown>();
+  let lastPartialJson = '';
+  const emitPartial = async () => {
+    if (!schema) return;
+    // Text-mode providers often open with a ```json fence or a short preamble: parse from the first `{`.
+    const start = s.st.text.indexOf('{');
+    if (start < 0) return;
+    const { value, state } = await parsePartialJson(s.st.text.slice(start));
+    if ((state === 'successful-parse' || state === 'repaired-parse') && value !== null && typeof value === 'object') {
+      const json = JSON.stringify(value);
+      if (json !== lastPartialJson) {
+        lastPartialJson = json;
+        queue.push(value);
+      }
+    }
+  };
+
+  const final = (async (): Promise<LlmObjectResult<unknown> | LlmTextResult> => {
+    try {
+      for (;;) {
+        try {
+          if (schema) await emitPartial();
+          else if (s.st.text) queue.push(s.st.text);
+          while (!s.streamDone) {
+            const { done, value } = await s.reader.read();
+            if (done) break;
+            const delta = applyPart(value, s.st);
+            if (delta !== null) {
+              if (schema) await emitPartial();
+              else queue.push(delta);
+            }
+          }
+          break;
+        } catch (e) {
+          closeStream(s);
+          const classified = classifyError(e);
+          recordAttempt(ctx, s.resolved, s.attemptIndex, s.started, {
+            usage: normUsage(s.st.usage),
+            schemaValid: null,
+            errorCode: classified.errorCode,
+          });
+          if (schema && classified.retryable) {
+            ctx.failures.push(classified);
+            const reopened = await openFirstToken(ctx, candidates, next, schema, streamTimeoutMs);
+            if (!reopened) throw exhaustedError(ctx, true);
+            s = reopened.stream;
+            next = reopened.next;
+            lastPartialJson = '';
+            continue;
+          }
+          throw new LlmError(classified.timeout ? 'timeout' : 'provider_error', 'LLM stream failed mid-way', {
+            provider: s.resolved.provider,
+            attempts: ctx.attempts,
+            cause: e,
+          });
+        }
+      }
+    } finally {
+      clearTimeout(s.totalTimer);
+      queue.close();
     }
 
-    // Phase 2: committed to this provider. Pump the rest in the background.
-    const queue = new AsyncQueue<unknown>();
-    let lastPartialJson = '';
-    const emitPartial = async () => {
-      if (!schema) return;
-      const { value, state } = await parsePartialJson(st.text);
-      if ((state === 'successful-parse' || state === 'repaired-parse') && value !== null && typeof value === 'object') {
-        const json = JSON.stringify(value);
-        if (json !== lastPartialJson) {
-          lastPartialJson = json;
-          queue.push(value);
-        }
-      }
-    };
-
-    const final = (async (): Promise<LlmObjectResult<unknown> | LlmTextResult> => {
-      try {
-        if (schema) await emitPartial();
-        else if (st.text) queue.push(st.text);
-        while (!streamDone) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const delta = applyPart(value, st);
-          if (delta !== null) {
-            if (schema) await emitPartial();
-            else queue.push(delta);
-          }
-        }
-      } catch (e) {
-        const classified = classifyError(e);
-        recordAttempt(ctx, resolved, attemptIndex, started, {
-          usage: normUsage(st.usage),
-          schemaValid: null,
-          errorCode: classified.errorCode,
-        });
-        throw new LlmError(classified.timeout ? 'timeout' : 'provider_error', 'LLM stream failed mid-way', {
-          provider: resolved.provider,
-          attempts: ctx.attempts,
-          cause: e,
-        });
-      } finally {
-        clearTimeout(totalTimer);
-        queue.close();
-      }
-
+    const { resolved, st, attemptIndex, started } = s;
+    {
       const usage = normUsage(st.usage);
       if (!schema) {
         recordAttempt(ctx, resolved, attemptIndex, started, { usage, schemaValid: null, errorCode: null });
@@ -571,23 +643,22 @@ async function runStream(
         provider: resolved.provider,
         attempts: ctx.attempts,
       });
-    })();
-    final.catch(() => {}); // callers may only consume the stream; never leak an unhandled rejection
-
-    if (schema) {
-      return {
-        provider: resolved.provider,
-        model: resolved.modelId,
-        partialObjectStream: queue as AsyncIterable<DeepPartial<unknown>>,
-        final: final as Promise<LlmObjectResult<unknown>>,
-      };
     }
+  })();
+  final.catch(() => {}); // callers may only consume the stream; never leak an unhandled rejection
+
+  if (schema) {
     return {
-      provider: resolved.provider,
-      model: resolved.modelId,
-      textStream: queue as AsyncIterable<string>,
-      final: final as Promise<LlmTextResult>,
+      provider: firstResolved.provider,
+      model: firstResolved.modelId,
+      partialObjectStream: queue as AsyncIterable<DeepPartial<unknown>>,
+      final: final as Promise<LlmObjectResult<unknown>>,
     };
   }
-  throw exhaustedError(ctx, anyConfigured);
+  return {
+    provider: firstResolved.provider,
+    model: firstResolved.modelId,
+    textStream: queue as AsyncIterable<string>,
+    final: final as Promise<LlmTextResult>,
+  };
 }

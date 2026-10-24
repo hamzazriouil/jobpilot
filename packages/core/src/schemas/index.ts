@@ -4,3 +4,4 @@ export * from './drafts';
 export * from './profile';
 export * from './job';
 export * from './api';
+export * from './stream';

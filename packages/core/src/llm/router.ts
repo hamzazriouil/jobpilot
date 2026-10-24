@@ -60,23 +60,30 @@ export function classifyError(error: unknown): ClassifiedError {
     return { retryable: true, errorCode: 'timeout', badConfig: false, timeout: true };
   }
   if (APICallError.isInstance(e)) {
-    const status = e.statusCode;
-    if (status === 429 || status === 408 || (status !== undefined && status >= 500)) {
-      return { retryable: true, errorCode: `http_${status}`, badConfig: false, timeout: status === 408 };
-    }
-    if (status === 401 || status === 403) {
-      return { retryable: false, errorCode: `http_${status}`, badConfig: true, timeout: false };
-    }
-    if (status === undefined) {
+    if (e.statusCode === undefined) {
       // No HTTP status: network failure / connection reset. The SDK marks these retryable.
       return { retryable: e.isRetryable, errorCode: 'network', badConfig: false, timeout: false };
     }
-    return { retryable: false, errorCode: `http_${status}`, badConfig: false, timeout: false };
+    return classifyStatus(e.statusCode);
   }
+  // Errors reported inside an HTTP-200 stream carry the status too, e.g. Gemini's
+  // AI_StreamProviderError { statusCode: 503, "This model is currently experiencing high demand" }.
+  const status = (e as { statusCode?: unknown } | null)?.statusCode;
+  if (typeof status === 'number') return classifyStatus(status);
   if (e instanceof TypeError && /fetch|network/i.test(e.message)) {
     return { retryable: true, errorCode: 'network', badConfig: false, timeout: false };
   }
   return { retryable: false, errorCode: 'provider_error', badConfig: false, timeout: false };
+}
+
+function classifyStatus(status: number): ClassifiedError {
+  if (status === 429 || status === 408 || status >= 500) {
+    return { retryable: true, errorCode: `http_${status}`, badConfig: false, timeout: status === 408 };
+  }
+  if (status === 401 || status === 403) {
+    return { retryable: false, errorCode: `http_${status}`, badConfig: true, timeout: false };
+  }
+  return { retryable: false, errorCode: `http_${status}`, badConfig: false, timeout: false };
 }
 
 export function isRetryableError(error: unknown): boolean {

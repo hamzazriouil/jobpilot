@@ -8,6 +8,7 @@
     "./regions": "./src/regions.ts",
     "./schemas": "./src/schemas/index.ts",
     "./scoring": "./src/scoring/index.ts",
+    "./honesty": "./src/honesty/index.ts",
     "./llm": "./src/llm/index.ts",
     "./prompts": "./src/prompts/index.ts"
   },

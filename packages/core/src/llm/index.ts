@@ -23,7 +23,15 @@ export {
   createWorkersModel,
   createClaudeModel,
   resolveModel,
+  resolveModels,
+  createGeminiModels,
+  geminiThinkingLevelFor,
   DEFAULT_GEMINI_MODEL,
+  GEMINI_DEFAULT_THINKING,
+  DEFAULT_GEMINI_FALLBACKS,
+  GEMINI_THINKING_LEVELS,
+  type GeminiThinkingLevel,
+  type GeminiModelSpec,
   DEFAULT_WORKERS_MODEL,
   DEFAULT_CLAUDE_MODEL,
   DEFAULT_MODELS,
@@ -39,5 +47,6 @@ export {
 } from './providers';
 export { estimateCost, getPrice, PRICE_TABLE, type LlmUsage, type ModelPrice } from './cost';
 export { consoleSink, noopSink, type LlmCallRow, type LlmCallSink } from './log';
+export { dedupeWorkersSseLine, dedupeWorkersSseStream, dedupingFetch, dedupingBinding } from './workers-sse';
 export { LlmError, type LlmErrorCode, type LlmAttemptSummary } from './errors';
 export { extractJson, parseWithSchema, formatZodIssues } from './validate';

@@ -9,19 +9,37 @@
 
 # Public base URL of the app, e.g. http://localhost:3000 locally, https://jobpilot-web.<subdomain>.workers.dev in prod.
 APP_URL=
+# Supabase project URL (safe to expose to the browser). Phase 0 needs it server-side for quota + llm_calls.
+NEXT_PUBLIC_SUPABASE_URL=
 # Supabase service-role key. SERVER ONLY (quota + llm_calls logging). Never expose to the client.
 SUPABASE_SERVICE_ROLE_KEY=
 # Gemini API key from Google AI Studio (free tier). Primary LLM provider.
 GOOGLE_GENERATIVE_AI_API_KEY=
+# Optional: Gemini model id override. Empty = DEFAULT_GEMINI_MODEL in packages/core/src/llm/providers.ts.
+GEMINI_MODEL=
+# Optional: thinking level for GEMINI_MODEL: minimal | low | medium | high | off.
+# Empty = the benchmarked level from GEMINI_DEFAULT_THINKING in core (none for unlisted models).
+GEMINI_THINKING_LEVEL=
+# Optional: comma-separated Gemini models tried (in order) before Workers AI when the main one fails
+# with 429/5xx/timeout. Empty = DEFAULT_GEMINI_FALLBACKS in core; "none" disables.
+GEMINI_FALLBACK_MODELS=
 # Random secret (>= 32 bytes) used to HMAC-sign analysis tokens between /api/analyze and /api/draft.
 ANALYSIS_TOKEN_SECRET=
 # Random secret used as the daily salt base for hashing IPs (we never store raw IPs).
 IP_HASH_SALT=
 
+# --- Dev only (ignored or unused in production) ---
+
+# ISO-2 country used for LLM provider routing in `next dev` (there is no request.cf locally).
+# e.g. MA → Gemini then Workers AI; DE → Workers AI only. Ignored when NODE_ENV=production.
+DEV_COUNTRY_OVERRIDE=
+# Workers AI over REST from `next dev` (the AI binding needs CF_REMOTE_BINDINGS=1 + wrangler auth).
+# Token needs the "Workers AI: Read" permission. Never set these as Worker secrets: prod uses the binding.
+CLOUDFLARE_ACCOUNT_ID=
+CLOUDFLARE_API_TOKEN=
+
 # --- Phase 1 ---
 
-# Supabase project URL (safe to expose to the browser).
-NEXT_PUBLIC_SUPABASE_URL=
 # Supabase anon (public) key, protected by RLS (safe to expose to the browser).
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
