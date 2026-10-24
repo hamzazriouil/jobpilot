@@ -1,8 +1,6 @@
 import { runLLM, type LlmObjectStreamResult } from '@jobpilot/core/llm';
-import { ANALYZE_PROMPT_VERSION, buildAnalyzePrompt } from '@jobpilot/core/prompts';
+import { analyzeCall, finishAnalysis, type AnalysisLLMTransport } from '@jobpilot/core/pipeline';
 import { AnalyzeRequest, type AnalyzeResultEvent } from '@jobpilot/core/schemas';
-import { toAnalysisResult } from '@jobpilot/core/scoring';
-import { AnalysisLLMTransport, finalizeAnalysis } from '@/lib/server/analysis';
 import { getRequestContext } from '@/lib/server/env';
 import {
   apiErrorResponse,
@@ -23,10 +21,10 @@ import { signAnalysisToken } from '@/lib/server/token';
 // POST /api/analyze (docs/05-ARCHITECTURE.md §5.1, §8). SSE wire format: @jobpilot/core/schemas stream.ts.
 // validate → quota (+ burst lock) → LLM structured stream (`partial` events) → evidence check + score
 // in code → one `result` { result, analysisToken } or one `error`. Pre-stream failures are JSON.
+// The prompt, run options, normalization, evidence check and scoring come from
+// @jobpilot/core/pipeline, the same code the eval runner measures (evals/run.ts).
 
 export const dynamic = 'force-dynamic';
-
-const ANALYZE_MAX_OUTPUT_TOKENS = 4096;
 
 export async function POST(request: Request): Promise<Response> {
   const rc = await getRequestContext();
@@ -63,21 +61,13 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const prompt = buildAnalyzePrompt({ cvText, jobText, country });
   let llm: LlmObjectStreamResult<AnalysisLLMTransport>;
   try {
     llm = await runLLM({
-      task: 'analyze',
-      system: prompt.system,
-      prompt: prompt.prompt,
-      temperature: prompt.temperature,
-      // Workers AI defaults to 256 output tokens, which truncates the JSON. A full analysis is ~1.5k.
-      maxOutputTokens: ANALYZE_MAX_OUTPUT_TOKENS,
-      schema: AnalysisLLMTransport,
+      ...analyzeCall({ cvText, jobText, country }),
       stream: true,
       plan: 'free',
       country: routingCountry(request, rc),
-      promptVersion: ANALYZE_PROMPT_VERSION,
       providers: buildProviderConfig(rc.env, rc.isProd),
       sink: llmSink(db, rc.waitUntil),
     });
@@ -94,11 +84,7 @@ export async function POST(request: Request): Promise<Response> {
         if (!send('partial', partial)) break; // client went away; the LLM call still finishes and is logged
       }
       const final = await llm.final;
-      const result = toAnalysisResult(finalizeAnalysis(final.object), { cvText, jobText }, {
-        provider: final.provider,
-        model: final.model,
-        promptVersion: ANALYZE_PROMPT_VERSION,
-      });
+      const { result } = finishAnalysis(final.object, { cvText, jobText }, final);
       const event: AnalyzeResultEvent = {
         result,
         analysisToken: await signAnalysisToken(result, { cvText, jobText }, secret),

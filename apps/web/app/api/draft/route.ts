@@ -1,8 +1,6 @@
-import { checkHonesty } from '@jobpilot/core/honesty';
 import { runLLM, type LlmObjectStreamResult } from '@jobpilot/core/llm';
-import { buildDraftPrompt, DRAFT_PROMPT_VERSION } from '@jobpilot/core/prompts';
+import { draftCall, finishDrafts, type DraftsLLMUncapped } from '@jobpilot/core/pipeline';
 import { DraftRequest, type DraftResultEvent } from '@jobpilot/core/schemas';
-import { DraftsLLMUncapped, finalizeDrafts } from '@/lib/server/drafts';
 import { getRequestContext } from '@/lib/server/env';
 import {
   apiErrorResponse,
@@ -24,10 +22,10 @@ import { verifyAnalysisToken } from '@/lib/server/token';
 // token from /api/analyze and must belong to the same CV and job text. Drafting is part of the
 // analysis quota (§5.2), so v0 doesn't count it again; only the burst lock applies.
 // Streams DraftsLLM partials, then one `result` { drafts, honestyFlags } or one `error`.
+// The prompt, run options, trimming and honesty check come from @jobpilot/core/pipeline, the same
+// code the eval runner measures (evals/run.ts).
 
 export const dynamic = 'force-dynamic';
-
-const DRAFT_MAX_OUTPUT_TOKENS = 2048;
 
 const TOKEN_REJECTED: Record<string, string> = {
   expired: 'This analysis has expired. Run the analysis again to write drafts.',
@@ -65,21 +63,13 @@ export async function POST(request: Request): Promise<Response> {
     return apiErrorResponse('busy', 'Drafts are already being written. Please wait a few seconds.', 429);
   }
 
-  const prompt = buildDraftPrompt({ cvText, jobText, analysis: verified.payload.result });
   let llm: LlmObjectStreamResult<DraftsLLMUncapped>;
   try {
     llm = await runLLM({
-      task: 'draft',
-      system: prompt.system,
-      prompt: prompt.prompt,
-      temperature: prompt.temperature,
-      // Workers AI defaults to 256 output tokens, which truncates the JSON. Drafts are ~700.
-      maxOutputTokens: DRAFT_MAX_OUTPUT_TOKENS,
-      schema: DraftsLLMUncapped,
+      ...draftCall({ cvText, jobText, analysis: verified.payload.result }),
       stream: true,
       plan: 'free',
       country: routingCountry(request, rc),
-      promptVersion: DRAFT_PROMPT_VERSION,
       providers: buildProviderConfig(rc.env, rc.isProd),
       sink: llmSink(db, rc.waitUntil),
     });
@@ -96,8 +86,7 @@ export async function POST(request: Request): Promise<Response> {
         if (!send('partial', partial)) break;
       }
       const final = await llm.final;
-      const drafts = finalizeDrafts(final.object);
-      const event: DraftResultEvent = { drafts, honestyFlags: checkHonesty(drafts, { cvText, jobText }) };
+      const event: DraftResultEvent = finishDrafts(final.object, { cvText, jobText });
       send('result', event);
     } catch (err) {
       logError('draft_failed', err, { stage: 'stream', provider: llm.provider });

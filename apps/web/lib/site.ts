@@ -23,7 +23,7 @@ export function absoluteUrl(path: string): string {
 }
 
 /** Public, indexable pages (sitemap.ts). */
-export const PUBLIC_PATHS = ['/', '/pricing', '/privacy', '/terms', '/refund'] as const;
+export const PUBLIC_PATHS = ['/', '/evals', '/pricing', '/privacy', '/terms', '/refund'] as const;
 
 /**
  * Shared social image, a static file (public/og-image.png, made by scripts/generate-og-image.mjs).

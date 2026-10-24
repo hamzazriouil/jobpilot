@@ -13,5 +13,7 @@ coverage/
 *.log
 .DS_Store
 
-# Founder's real job posts + CV for evals (personal data)
+# Founder's real job posts + CV for evals (personal data), incl. the generated evals/raw/cases/
 evals/raw/
+# Eval outputs about the founder's real job posts (synthetic-case results are committed)
+evals/results/raw-*

@@ -4,7 +4,9 @@
   "packageManager": "pnpm@9.12.2",
   "scripts": {
     "test": "pnpm -r --if-present test",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "eval": "pnpm --filter @jobpilot/evals eval",
+    "eval:import-raw": "pnpm --filter @jobpilot/evals import-raw"
   },
   "engines": { "node": ">=22.12" }
 }
