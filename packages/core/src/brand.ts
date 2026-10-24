@@ -9,7 +9,7 @@ export const SUPPORT_EMAIL = 'hello@example.com'; // TODO: set once the domain i
  * TODO: set to the real domain once it is bought (and check the workers.dev URL, which normally
  * includes the account subdomain: jobpilot-web.<account>.workers.dev).
  */
-export const SITE_URL = 'https://jobpilot-web.workers.dev';
+export const SITE_URL = 'https://jobpilot-web.buildli731.workers.dev';
 
 /** Public source repository. The repo is private for now, so the footer hides the link while this is null. */
 export const SOURCE_URL: string | null = null;
