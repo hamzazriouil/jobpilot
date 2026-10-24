@@ -1,7 +1,11 @@
 /**
  * Eval runner (docs/05-ARCHITECTURE.md §13).
  *
- *   pnpm eval --provider gemini|workers|claude [--cases 001,004] [--include-raw] [--no-db] [--delay-ms 4000]
+ *   pnpm eval --provider gemini|workers|claude [--prompt v1|v2] [--cases 001,004] [--include-raw] [--no-db] [--delay-ms 4000]
+ *
+ * --prompt picks the analyze prompt version (default: DEFAULT_ANALYZE_PROMPT in @jobpilot/core/prompts;
+ * the ANALYZE_PROMPT_VERSION shell variable works too). The version string goes into llm_calls,
+ * each AnalysisResult, the results file and eval_runs.prompt_version.
  *
  * For each case, sequentially: analyze, then draft, through the SAME pipeline as /api/analyze and
  * /api/draft (@jobpilot/core/pipeline + runLLM in stream mode). Only the chosen provider is
@@ -28,7 +32,7 @@ import {
   forceProvider,
   type ProviderEnv,
 } from '@jobpilot/core/pipeline';
-import { ANALYZE_PROMPT_VERSION, DRAFT_PROMPT_VERSION } from '@jobpilot/core/prompts';
+import { ANALYZE_PROMPTS, DRAFT_PROMPT_VERSION, resolveAnalyzePromptId } from '@jobpilot/core/prompts';
 import type { AnalysisResult } from '@jobpilot/core/schemas';
 import { supabaseAdmin } from '../apps/web/lib/server/supabase';
 import { datasetVersion, loadCases, type EvalCase } from './lib/cases';
@@ -36,6 +40,9 @@ import { loadDevVars } from './lib/dev-vars';
 import {
   computeMetrics,
   findCanaries,
+  injectionInflationResisted,
+  injectionLabelKept,
+  isInjectionCase,
   mentionsHiddenInstructions,
   type AnalyzeRecord,
   type AttemptRow,
@@ -56,9 +63,12 @@ function parseCli() {
       'include-raw': { type: 'boolean', default: false },
       'no-db': { type: 'boolean', default: false },
       'delay-ms': { type: 'string', default: '4000' },
+      prompt: { type: 'string' },
     },
     allowPositionals: false,
   });
+  // --prompt v1|v2 (or "analyze.v2"); else ANALYZE_PROMPT_VERSION from the shell; else the default.
+  const promptId = resolveAnalyzePromptId(values.prompt ?? process.env.ANALYZE_PROMPT_VERSION);
   const provider = values.provider as ProviderKey | undefined;
   if (!provider || !PROVIDERS.includes(provider)) {
     throw new Error(`--provider must be one of ${PROVIDERS.join(', ')}`);
@@ -68,7 +78,7 @@ function parseCli() {
   const caseFilter = values.cases
     ? new Set(values.cases.split(',').map((s) => s.trim()).filter(Boolean))
     : null;
-  return { provider, caseFilter, includeRaw: values['include-raw'], noDb: values['no-db'], delayMs };
+  return { provider, caseFilter, includeRaw: values['include-raw'], noDb: values['no-db'], delayMs, promptId };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -120,9 +130,10 @@ async function main(): Promise<void> {
   if (cases.length === 0) throw new Error('No cases selected.');
   const dsVersion = datasetVersion(cases);
   const startedAt = new Date();
+  const analyzeVersion = ANALYZE_PROMPTS[args.promptId].version;
   console.log(
     `Eval: provider=${args.provider} cases=${cases.length} (${cases.filter((c) => c.raw).length} raw) dataset=${dsVersion} ` +
-      `prompts=${ANALYZE_PROMPT_VERSION}+${DRAFT_PROMPT_VERSION} delay=${args.delayMs}ms`,
+      `prompts=${analyzeVersion}+${DRAFT_PROMPT_VERSION} delay=${args.delayMs}ms`,
   );
 
   const records: CaseRecord[] = [];
@@ -138,10 +149,10 @@ async function main(): Promise<void> {
     let result: AnalysisResult | null = null;
     const t0 = Date.now();
     try {
-      const llm = await runLLM({ ...analyzeCall(c), stream: true, ...route, sink: captureSink(aRows) });
+      const llm = await runLLM({ ...analyzeCall(c, args.promptId), stream: true, ...route, sink: captureSink(aRows) });
       for await (const _ of llm.partialObjectStream) analyze.firstPartialMs ??= Date.now() - t0;
       const final = await llm.final;
-      const out = finishAnalysis(final.object, ctx, final);
+      const out = finishAnalysis(final.object, ctx, final, args.promptId);
       result = out.result;
       const claims =
         out.llm.requirements.filter((r) => r.status !== 'missing').length + (out.llm.eligibility.verdict !== 'unclear' ? 1 : 0);
@@ -221,7 +232,7 @@ async function main(): Promise<void> {
   const header = {
     provider: args.provider,
     model,
-    promptVersion: `${ANALYZE_PROMPT_VERSION}+${DRAFT_PROMPT_VERSION}`,
+    promptVersion: `${analyzeVersion}+${DRAFT_PROMPT_VERSION}`,
     datasetVersion: dsVersion,
     startedAt: startedAt.toISOString(),
     finishedAt: new Date().toISOString(),
@@ -258,6 +269,7 @@ function caseSummary(r: CaseRecord) {
     downgrades: r.analyze.downgrades ?? null,
     honestyFlags: r.draft?.honestyFlags?.length ?? null,
     canaryHits: r.draft?.canaryHits?.length ?? null,
+    ...(isInjectionCase(r) ? { inflationResisted: injectionInflationResisted(r), labelKept: injectionLabelKept(r) } : {}),
     error: r.analyze.errorCode ?? r.draft?.errorCode ?? null,
   };
 }

@@ -1,4 +1,11 @@
-import { bandDistance, injectionPassed, isInjectionCase, type CaseRecord, type RunMetrics } from './metrics';
+import {
+  bandDistance,
+  injectionInflationResisted,
+  injectionLabelKept,
+  isInjectionCase,
+  type CaseRecord,
+  type RunMetrics,
+} from './metrics';
 
 // Plain-text report for the terminal. No CV, job or draft text is printed.
 
@@ -18,8 +25,13 @@ export function printMetrics(provider: string, model: string, m: RunMetrics): vo
     ['evidence-downgrade rate', `${pct(m.downgradeRate)} of met/partial claims (${m.downgradesPerAnalysis ?? 'n/a'} per analysis)`],
     ['honesty-flag rate', `${pct(m.honestyFlagRate)} of draft sets (${m.honestyFlagsPerDraft ?? 'n/a'} flags per set)`],
     [
-      'injection resistance',
-      `${m.injectionPassed}/${m.injectionCases} passed (canary leaks: ${m.injectionCanaryLeaks}, flagged as hidden instructions: ${m.injectionFlagged})`,
+      'injection: inflation resisted',
+      `${m.injectionInflationResisted}/${m.injectionCases}   (band/eligibility not raised, canary leaks: ${m.injectionCanaryLeaks})`,
+    ],
+    ['injection: label kept', `${m.injectionLabelKept}/${m.injectionCases}   (exact expected eligibility and band; legacy pass ${m.injectionPassed}/${m.injectionCases})`],
+    [
+      'hidden-instruction red flags',
+      `${m.jobInjectionFlagged}/${m.jobInjectionCases} job-side injections flagged; false flags on other cases: ${m.falseInjectionFlags}`,
     ],
     ['analyze latency p50 / p95', `${ms(m.p50ms)} / ${ms(m.p95ms)}   (first partial p50 ${ms(m.firstPartialP50ms)})`],
     ['draft latency p50 / p95', `${ms(m.draftP50ms)} / ${ms(m.draftP95ms)}`],
@@ -47,7 +59,10 @@ export function printCaseTable(records: readonly CaseRecord[]): void {
       if (a.eligibility !== r.expected.eligibility) notes.push('ELIG MISS');
       if (a.band !== r.expected.band) notes.push(bandDistance(a.band!, r.expected.band) <= 1 ? 'band ±1' : 'BAND MISS');
     }
-    if (isInjectionCase(r)) notes.push(injectionPassed(r) ? 'injection ok' : 'INJECTION FAIL');
+    if (isInjectionCase(r)) {
+      if (!injectionInflationResisted(r)) notes.push('INJECTION WORKED');
+      else notes.push(injectionLabelKept(r) ? 'injection ok' : 'injection resisted, label moved');
+    }
     if (r.draft?.canaryHits?.length) notes.push(`canary: ${r.draft.canaryHits.join(',')}`);
     if (a.eligibilityDowngraded) notes.push('elig quote unverified');
     if (r.draft && !r.draft.ok) notes.push(`draft ERROR ${r.draft.errorCode}`);

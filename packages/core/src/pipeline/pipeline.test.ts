@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { ANALYZE_PROMPT_VERSION, DRAFT_PROMPT_VERSION, SAMPLE_ANALYSIS_FIXTURE, SAMPLE_COUNTRY, SAMPLE_CV, SAMPLE_JOB } from '../prompts';
+import {
+  ANALYZE_PROMPT_VERSION,
+  ANALYZE_SYSTEM_PROMPT,
+  ANALYZE_V2_SYSTEM_PROMPT,
+  DEFAULT_ANALYZE_PROMPT_VERSION,
+  DRAFT_PROMPT_VERSION,
+  SAMPLE_ANALYSIS_FIXTURE,
+  SAMPLE_COUNTRY,
+  SAMPLE_CV,
+  SAMPLE_JOB,
+} from '../prompts';
 import { toAnalysisResult } from '../scoring';
 import {
   ANALYZE_MAX_OUTPUT_TOKENS,
@@ -21,7 +31,7 @@ describe('analyzeCall / draftCall', () => {
   it('carries the prompt version, token cap and lenient schema', () => {
     const a = analyzeCall({ ...ctx, country: SAMPLE_COUNTRY });
     expect(a.task).toBe('analyze');
-    expect(a.promptVersion).toBe(ANALYZE_PROMPT_VERSION);
+    expect(a.promptVersion).toBe(DEFAULT_ANALYZE_PROMPT_VERSION);
     expect(a.maxOutputTokens).toBe(ANALYZE_MAX_OUTPUT_TOKENS);
     expect(a.schema).toBe(AnalysisLLMTransport);
     expect(a.prompt).toContain('<cv>');
@@ -31,6 +41,23 @@ describe('analyzeCall / draftCall', () => {
     expect(d.promptVersion).toBe(DRAFT_PROMPT_VERSION);
     expect(d.maxOutputTokens).toBe(DRAFT_MAX_OUTPUT_TOKENS);
   });
+
+  it('selects the prompt version by id', () => {
+    const input = { ...ctx, country: SAMPLE_COUNTRY };
+    const v1 = analyzeCall(input, 'v1');
+    const v2 = analyzeCall(input, 'v2');
+    expect(v1.promptVersion).toBe(ANALYZE_PROMPT_VERSION);
+    expect(v1.system).toBe(ANALYZE_SYSTEM_PROMPT);
+    expect(v2.promptVersion).toBe('analyze.v2');
+    expect(v2.system).toBe(ANALYZE_V2_SYSTEM_PROMPT);
+    expect(v2.prompt).toBe(v1.prompt); // same user message, only the system prompt differs
+    expect(v2.temperature).toBe(v1.temperature);
+  });
+
+  it('builds the prompt only from the prompt fields', () => {
+    const wide = { ...ctx, country: SAMPLE_COUNTRY, id: '001', tags: ['x'], expected: null };
+    expect(analyzeCall(wide, 'v2').prompt).toBe(analyzeCall({ ...ctx, country: SAMPLE_COUNTRY }, 'v2').prompt);
+  });
 });
 
 describe('finishAnalysis', () => {
@@ -38,10 +65,17 @@ describe('finishAnalysis', () => {
     const served = { provider: 'gemini', model: 'm' };
     const out = finishAnalysis(AnalysisLLMTransport.parse(SAMPLE_ANALYSIS_FIXTURE), ctx, served);
     expect(out.result).toEqual(
-      toAnalysisResult(SAMPLE_ANALYSIS_FIXTURE, ctx, { ...served, promptVersion: ANALYZE_PROMPT_VERSION }),
+      toAnalysisResult(SAMPLE_ANALYSIS_FIXTURE, ctx, { ...served, promptVersion: DEFAULT_ANALYZE_PROMPT_VERSION }),
     );
     expect(out.llm).toEqual(SAMPLE_ANALYSIS_FIXTURE);
     expect(out.evidence.downgrades).toBe(out.result.evidenceDowngrades);
+  });
+
+  it('records the version of the prompt that was used', () => {
+    const served = { provider: 'gemini', model: 'm' };
+    const raw = AnalysisLLMTransport.parse(SAMPLE_ANALYSIS_FIXTURE);
+    expect(finishAnalysis(raw, ctx, served, 'v1').result.promptVersion).toBe('analyze.v1');
+    expect(finishAnalysis(raw, ctx, served, 'v2').result.promptVersion).toBe('analyze.v2');
   });
 });
 

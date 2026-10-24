@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ANALYZE_PROMPT_VERSION, buildAnalyzePrompt, type AnalyzePromptInput } from '../prompts';
+import { ANALYZE_PROMPTS, DEFAULT_ANALYZE_PROMPT, type AnalyzePromptId, type AnalyzePromptInput } from '../prompts';
 import { AnalysisLLM, Eligibility, Gap, Requirement, type AnalysisResult } from '../schemas';
 import { toAnalysisResultDetailed, type EvidenceCheckResult, type EvidenceContext, type ScoreBreakdown } from '../scoring';
 import { trimToLength } from './text';
@@ -59,9 +59,14 @@ export function finalizeAnalysis(raw: AnalysisLLMTransport): AnalysisLLM {
   });
 }
 
-/** Everything runLLM needs for the analyze call except routing (plan, country, providers), sink and stream. */
-export function analyzeCall(input: AnalyzePromptInput) {
-  const prompt = buildAnalyzePrompt(input);
+/**
+ * Everything runLLM needs for the analyze call except routing (plan, country, providers), sink and stream.
+ * `promptId` picks the prompt version (default: DEFAULT_ANALYZE_PROMPT); pass the same id to finishAnalysis.
+ */
+export function analyzeCall(input: AnalyzePromptInput, promptId: AnalyzePromptId = DEFAULT_ANALYZE_PROMPT) {
+  const def = ANALYZE_PROMPTS[promptId];
+  // Only the prompt fields: callers may pass a wider object (the eval runner passes the whole case).
+  const prompt = def.build({ cvText: input.cvText, jobText: input.jobText, country: input.country });
   return {
     task: 'analyze',
     system: prompt.system,
@@ -69,7 +74,7 @@ export function analyzeCall(input: AnalyzePromptInput) {
     temperature: prompt.temperature,
     maxOutputTokens: ANALYZE_MAX_OUTPUT_TOKENS,
     schema: AnalysisLLMTransport,
-    promptVersion: ANALYZE_PROMPT_VERSION,
+    promptVersion: def.version,
   } as const;
 }
 
@@ -82,17 +87,21 @@ export interface AnalysisOutcome {
   breakdown: ScoreBreakdown;
 }
 
-/** Steps 4–5 of §5.1 on the validated LLM object. Throws a ZodError if the result breaks the contract. */
+/**
+ * Steps 4–5 of §5.1 on the validated LLM object. Throws a ZodError if the result breaks the contract.
+ * `promptId` must be the one given to analyzeCall: its version string is stored on the result.
+ */
 export function finishAnalysis(
   raw: AnalysisLLMTransport,
   ctx: EvidenceContext,
   served: { provider: string; model: string },
+  promptId: AnalyzePromptId = DEFAULT_ANALYZE_PROMPT,
 ): AnalysisOutcome {
   const llm = finalizeAnalysis(raw);
   const { result, evidence, breakdown } = toAnalysisResultDetailed(llm, ctx, {
     provider: served.provider,
     model: served.model,
-    promptVersion: ANALYZE_PROMPT_VERSION,
+    promptVersion: ANALYZE_PROMPTS[promptId].version,
   });
   return { result, llm, evidence, breakdown };
 }
