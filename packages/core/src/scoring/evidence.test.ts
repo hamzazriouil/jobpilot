@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { AnalysisResult, type AnalysisLLM, type Requirement } from '../schemas';
 import { NO_EVIDENCE_NOTE, applyEvidenceCheck, normalizeForMatch, quoteFoundIn } from './evidence';
 import { computeScore } from './score';
@@ -7,11 +7,11 @@ import { toAnalysisResult } from './result';
 const CV = `Omar B. | Full-stack developer | Casablanca, Morocco
 
 PROJECTS
-â€¢ Built RARE, a Next.js + Cloudflare app used by 2,000 collectors â€” real-time rarity scores.
-â€¢ Led a team of four engineers at Acme to ship a React Native app (2023â€“2024).
+• Built RARE, a Next.js + Cloudflare app used by 2,000 collectors — real-time rarity scores.
+• Led a team of four engineers at Acme to ship a React Native app (2023–2024).
 
 SKILLS
-TypeScript, JavaScript, React, Node.js, PostgreSQL, CafÃ©-ordering bots.`;
+TypeScript, JavaScript, React, Node.js, PostgreSQL, Café-ordering bots.`;
 
 const JOB = `Senior-ish Full-stack Engineer at Globex. We're a remote-first company.
 Location: This role is open to candidates anywhere in the EMEA region (contractors welcome).
@@ -57,7 +57,7 @@ function deepFreeze<T>(o: T): T {
 
 describe('normalizeForMatch', () => {
   it('lowercases, strips punctuation/symbols, folds accents, collapses whitespace', () => {
-    expect(normalizeForMatch('  Built RARE,\n a  Next.js + Cloudflare app â€” CafÃ©!  ')).toBe('built rare a next js cloudflare app cafe');
+    expect(normalizeForMatch('  Built RARE,\n a  Next.js + Cloudflare app — Café!  ')).toBe('built rare a next js cloudflare app cafe');
   });
 });
 
@@ -67,12 +67,12 @@ describe('quoteFoundIn', () => {
   });
 
   it('finds a quote with different whitespace, case, punctuation and smart dashes', () => {
-    expect(quoteFoundIn('built   RARE a next.js+cloudflare APP used by 2000 collectors', CV)).toBe(true); // "2000" vs "2,000": 10/11 tokens â†’ fuzzy
+    expect(quoteFoundIn('built   RARE a next.js+cloudflare APP used by 2000 collectors', CV)).toBe(true); // "2000" vs "2,000": 10/11 tokens → fuzzy
     expect(quoteFoundIn('built   RARE a next.js+cloudflare APP used by 2,000 collectors - real-time', CV)).toBe(true);
-    expect(quoteFoundIn('â€œBuilt RAREâ€, a Next.js / Cloudflare app', CV)).toBe(true);
+    expect(quoteFoundIn('“Built RARE”, a Next.js / Cloudflare app', CV)).toBe(true);
   });
 
-  it('fuzzy: tolerates one added word in the quote (â‰¥85% of tokens in order)', () => {
+  it('fuzzy: tolerates one added word in the quote (≥85% of tokens in order)', () => {
     // 13 tokens, 12 present in order ("and" is not in the CV)
     expect(quoteFoundIn('Built RARE, a Next.js and Cloudflare app used by 2,000 collectors', CV)).toBe(true);
   });
@@ -97,7 +97,7 @@ describe('quoteFoundIn', () => {
   it('null, empty and punctuation-only quotes are never found', () => {
     expect(quoteFoundIn(null, CV)).toBe(false);
     expect(quoteFoundIn('', CV)).toBe(false);
-    expect(quoteFoundIn(' â€¦ ', CV)).toBe(false);
+    expect(quoteFoundIn(' … ', CV)).toBe(false);
   });
 
   it('stays fast on a max-size source', () => {
@@ -160,7 +160,7 @@ describe('applyEvidenceCheck', () => {
     expect(res.analysis.eligibility).toMatchObject({ verdict: 'unclear', evidenceQuote: null });
   });
 
-  it('eligible/not_eligible with a null quote â†’ unclear; unclear stays unclear and is not counted', () => {
+  it('eligible/not_eligible with a null quote → unclear; unclear stays unclear and is not counted', () => {
     const a = applyEvidenceCheck(analysis([req('met', 'Built RARE')], { evidenceQuote: null }), { cvText: CV, jobText: JOB });
     expect(a.analysis.eligibility.verdict).toBe('unclear');
     expect(a.downgrades).toBe(1);
@@ -196,7 +196,7 @@ describe('toAnalysisResult', () => {
   it('runs the evidence check, scores the checked analysis and validates the result', () => {
     const llm = analysis([
       req('met', 'Built RARE, a Next.js + Cloudflare app'),
-      req('met', 'Kubernetes on bare metal for 5 years'), // fabricated â†’ missing
+      req('met', 'Kubernetes on bare metal for 5 years'), // fabricated → missing
       req('met', 'TypeScript, JavaScript, React', { type: 'nice', evidenceSource: 'skills_list' }),
     ]);
     const result = toAnalysisResult(llm, { cvText: CV, jobText: JOB }, { provider: 'gemini', model: 'flash', promptVersion: 'analyze.v1' });
@@ -209,7 +209,7 @@ describe('toAnalysisResult', () => {
     const expected = computeScore(result);
     expect(result.score).toBe(expected.score);
     expect(result.band).toBe(expected.band);
-    // must 1/2 â†’ 25, nice 1 â†’ 15, seniority mid vs junior â†’ 7.5, stack 2/3 â†’ 6.67, evidence 1/2 â†’ 5 = 59.17
+    // must 1/2 → 25, nice 1 → 15, seniority mid vs junior → 7.5, stack 2/3 → 6.67, evidence 1/2 → 5 = 59.17
     expect(result.score).toBe(59);
     expect(result.band).toBe('stretch');
   });
