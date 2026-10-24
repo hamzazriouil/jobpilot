@@ -1,21 +1,21 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 import { BRAND_NAME } from '@jobpilot/core/brand';
 import { BASE_URL, OG_IMAGE } from '@/lib/site';
 import { strings } from '@/lib/strings';
 import { THEME_INIT_SCRIPT } from '@/lib/client/theme';
 import './globals.css';
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist',
   display: 'swap',
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  variable: '--font-jetbrains-mono',
+  variable: '--font-geist-mono',
   display: 'swap',
 });
 
@@ -44,16 +44,13 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
-  ],
+  themeColor: '#0a0a0b',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    // suppressHydrationWarning: THEME_INIT_SCRIPT may add `light`/`dark` to <html> before React hydrates.
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    // Dark is the default theme. suppressHydrationWarning: THEME_INIT_SCRIPT may swap `dark` for `light`\n    // on <html> before React hydrates.
+    <html lang="en" className={`dark ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

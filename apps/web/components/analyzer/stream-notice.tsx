@@ -1,5 +1,6 @@
-// Error / quota / busy / stopped messages for a stream (docs/03-UI-UX.md §6). Inputs are never
-// cleared by any of these; every recoverable case offers a retry.
+// Error / quota / busy / stopped messages for a stream (docs/03-UI-UX.md §6), in tone surfaces
+// with a mono title (docs/08-BRAND-UI.md). Inputs are never cleared by any of these; every
+// recoverable case offers a retry.
 import { CircleAlert, CircleX, Info, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -50,28 +51,30 @@ export function StreamNotice({
 }) {
   const copy = noticeCopy(error, context);
   const Icon = TONE_ICON[copy.tone];
+  const tone = TONE_CLASSES[copy.tone];
   const userStopped = error.code === 'aborted';
 
   return (
     <div
       // A stop the user asked for is a status, not an alert.
       role={userStopped ? 'status' : 'alert'}
-      className={cn('flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start', TONE_CLASSES[copy.tone].surface, className)}
+      className={cn('flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-start', tone.surface, className)}
     >
-      <Icon aria-hidden="true" className={cn('size-5 shrink-0', TONE_CLASSES[copy.tone].icon)} />
-      <div className="grid flex-1 gap-1 text-sm">
-        <p className="font-medium">{copy.title}</p>
-        <p className="text-muted-foreground">{copy.body}</p>
+      <Icon aria-hidden="true" className={cn('size-5 shrink-0', tone.icon)} />
+      <div className="grid min-w-0 flex-1 gap-1">
+        <p className={cn('font-mono text-[13px] font-medium break-words', copy.tone === 'neutral' ? 'text-foreground' : tone.text)}>
+          {copy.title}
+        </p>
+        <p className="text-sm break-words text-muted-foreground">{copy.body}</p>
       </div>
       {copy.action && onRetry ? (
         <Button
           type="button"
           variant="outline"
-          size="sm"
           onClick={onRetry}
           // After the user presses Stop, the Stop button disappears: move focus to the way back.
           autoFocus={userStopped}
-          className="self-start"
+          className="self-start bg-card/60"
         >
           {copy.action}
         </Button>

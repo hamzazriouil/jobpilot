@@ -1,5 +1,6 @@
 // shadcn/ui Card (new-york), hand-copied because the shadcn CLI hung on this machine.
-// Radius changed from rounded-xl to rounded-lg (10px) per docs/03-UI-UX.md §2.
+// Signal brand (docs/08-BRAND-UI.md §5): 14px radius (rounded-lg), hairline border, no shadow in
+// dark, a very soft one in light.
 import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -7,7 +8,10 @@ function Card({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="card"
-      className={cn('bg-card text-card-foreground flex flex-col gap-6 rounded-lg border py-6', className)}
+      className={cn(
+        'bg-card text-card-foreground flex flex-col gap-6 rounded-lg border border-border py-6 shadow-sm shadow-black/5 dark:shadow-none',
+        className,
+      )}
       {...props}
     />
   );
@@ -27,7 +31,7 @@ function CardHeader({ className, ...props }: ComponentProps<'div'>) {
 }
 
 function CardTitle({ className, ...props }: ComponentProps<'div'>) {
-  return <div data-slot="card-title" className={cn('leading-none font-semibold', className)} {...props} />;
+  return <div data-slot="card-title" className={cn('leading-none font-semibold tracking-tight', className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: ComponentProps<'div'>) {

@@ -1,36 +1,35 @@
 'use client';
 
-// Cycles system → light → dark. The choice is applied as a class on <html> (see globals.css) and
+// Switches dark ↔ light. The choice is applied as a class on <html> (see globals.css) and
 // remembered in localStorage; THEME_INIT_SCRIPT (lib/client/theme.ts) applies it before first paint.
 import { useEffect, useState } from 'react';
-import { Monitor, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { strings } from '@/lib/strings';
 import { STORAGE_KEYS, storageGet, storageRemove, storageSet } from '@/lib/client/storage';
+import { DEFAULT_THEME, type ThemeMode } from '@/lib/client/theme';
 
-type ThemeMode = 'system' | 'light' | 'dark';
-const NEXT: Record<ThemeMode, ThemeMode> = { system: 'light', light: 'dark', dark: 'system' };
-const ICON = { system: Monitor, light: Sun, dark: Moon } as const;
+const NEXT: Record<ThemeMode, ThemeMode> = { dark: 'light', light: 'dark' };
+const ICON = { light: Sun, dark: Moon } as const;
 
 function applyTheme(mode: ThemeMode) {
   const root = document.documentElement;
   root.classList.remove('light', 'dark');
-  if (mode !== 'system') root.classList.add(mode);
+  root.classList.add(mode);
 }
 
 export function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>('system');
+  const [mode, setMode] = useState<ThemeMode>(DEFAULT_THEME);
 
   useEffect(() => {
-    const saved = storageGet(STORAGE_KEYS.theme);
-    if (saved === 'light' || saved === 'dark') setMode(saved);
+    if (storageGet(STORAGE_KEYS.theme) === 'light') setMode('light');
   }, []);
 
   function onClick() {
     const next = NEXT[mode];
     setMode(next);
     applyTheme(next);
-    if (next === 'system') storageRemove(STORAGE_KEYS.theme);
+    if (next === DEFAULT_THEME) storageRemove(STORAGE_KEYS.theme);
     else storageSet(STORAGE_KEYS.theme, next);
   }
 

@@ -1,6 +1,6 @@
-// Public brand is not chosen yet (domain decided at purchase time). Change it here only.
-export const BRAND_NAME = 'JobPilot';
-export const BRAND_TAGLINE = 'Can you actually get this remote job?';
+// Public brand (docs/08-BRAND-UI.md). The code name `jobpilot` stays in package names. Change it here only.
+export const BRAND_NAME = 'ApplyVerdict';
+export const BRAND_TAGLINE = 'An honest verdict before you apply.';
 export const SUPPORT_EMAIL = 'hello@example.com'; // TODO: set once the domain is bought
 
 /**

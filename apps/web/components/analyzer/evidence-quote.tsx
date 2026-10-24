@@ -1,5 +1,6 @@
-// A verbatim quote from the CV or the job post (docs/03-UI-UX.md §4.2): mono, left border in the
-// status color, plus a "from: …" source label. This is the product's trust mechanism.
+// A verbatim quote from the job post or the CV (docs/03-UI-UX.md §4.2, docs/08-BRAND-UI.md §6.5):
+// mono, a left rule in the status color, plus a "from: …" source label. This is the product's
+// trust mechanism. Long quotes wrap (break-words) so nothing scrolls sideways at 360px.
 import { cn } from '@/lib/utils';
 import { strings } from '@/lib/strings';
 import { TONE_CLASSES, type Tone } from './tone';
@@ -18,10 +19,9 @@ export function EvidenceQuote({
 }) {
   return (
     <figure className={cn('min-w-0 border-l-2 pl-3', TONE_CLASSES[tone].border, className)}>
-      <blockquote className="font-mono text-xs leading-relaxed break-words text-foreground/90">
-        “{quote}”
-      </blockquote>
+      <blockquote className="font-mono text-[13px] leading-relaxed break-words text-foreground/90">“{quote}”</blockquote>
       {source ? (
+        // Muted, not quiet: the caption also sits on tinted (unclear / not eligible) cards.
         <figcaption className="mt-1 font-mono text-[11px] text-muted-foreground">
           {strings.results.from} {source}
         </figcaption>

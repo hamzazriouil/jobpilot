@@ -15,29 +15,50 @@ export const strings = {
   meta: {
     title: `${BRAND_NAME}: ${BRAND_TAGLINE}`,
     description:
-      'Paste your CV and a remote job post. Find out if you can apply from your country, get an honest fit score, and a ready-to-send cover letter and cold DM.',
+      'An honest fit score for remote jobs, with every claim traced to your CV. See if you can apply from your country, which requirements you really meet, and get drafts that never invent experience.',
   },
   header: {
     brand: BRAND_NAME,
     homeAriaLabel: `${BRAND_NAME} home`,
+    navAriaLabel: 'Main',
+    cta: 'Analyze free',
+    ctaHref: '/#analyzer',
   },
+  nav: [
+    { label: 'How it works', href: '/#how-it-works' },
+    { label: 'Evals', href: '/evals' },
+    { label: 'Pricing', href: '/pricing' },
+  ] as ReadonlyArray<{ label: string; href: string }>,
   theme: {
     /** Button label; announces the current mode and what a click does. */
     toggleAriaLabel: (current: string, next: string) => `Theme: ${current}. Switch to ${next}.`,
-    names: { system: 'system', light: 'light', dark: 'dark' },
+    names: { light: 'light', dark: 'dark' },
   },
   hero: {
-    title: BRAND_TAGLINE,
+    // Evals pill: REAL numbers only. Source: the latest Gemini run with prompt analyze.v2
+    // (evals/results/2026-10-24T18-25-27-908Z-gemini.json, also published on /evals):
+    // eligibility 100% and fit band 100% on 10 synthetic cases, 3/3 injection cases resisted.
+    // Update this text whenever a newer run changes those numbers.
+    evalsPill: 'evals · 100% eligibility on 10 test cases',
+    /** Shorter pill for phones (<640px), same claim. */
+    evalsPillShort: '100% eligibility · 10 test cases',
+    evalsHref: '/evals',
+    title: 'An honest fit score.',
+    titleMuted: 'Every claim traced to your CV.',
     subtitle:
-      'Paste your CV and a job post. In 30 seconds: whether you can apply from your country, an honest fit score, and a ready-to-send cover letter and cold DM.',
+      'Paste your CV and a remote job post. See whether you can apply from your country, which requirements you really meet, with quotes from your CV, and drafts that never invent experience.',
+    ctaSample: 'Try a sample run',
+    ctaOwn: 'Use my CV',
     // Accurate claim: not saved on OUR servers; it is sent to an AI provider (see /privacy).
     trustLine: 'No signup · Not saved on our servers · Sent to an AI provider to analyze',
-    sampleButton: 'Try with a sample',
-    sampleLoading: 'Loading sample…',
-    sampleHint: 'Fills in a sample CV and job post, then runs the analysis.',
   },
   analyzer: {
     sectionAriaLabel: 'Job fit analyzer',
+    /** Mono title of the form's terminal-window header. */
+    windowTitle: 'new analysis',
+    sampleButton: 'Try with a sample',
+    sampleLoading: 'Loading sample…',
+    sampleHint: 'Fills in a sample CV and job post, then runs the analysis.',
     cvLabel: 'Your CV',
     cvPlaceholder: 'Paste the text of your CV…',
     jobLabel: 'Job post',
@@ -68,7 +89,9 @@ export const strings = {
   results: {
     heading: 'Your results',
     jobLine: (title: string, company: string | null | undefined) => (company ? `${title} · ${company}` : title),
-    meta: (model: string, promptVersion: string) => `Model: ${model} · Prompt: ${promptVersion}`,
+    meta: (model: string, promptVersion: string) => `model ${model} · prompt ${promptVersion}`,
+    /** Mono run status on the right of the results header (decorative; progress is announced separately). */
+    runStatus: { streaming: 'streaming', done: 'done', stopped: 'stopped', failed: 'failed' },
     levels: { intern: 'Intern', junior: 'Junior', mid: 'Mid', senior: 'Senior', lead: 'Lead' },
     sources: {
       experience: 'experience',
@@ -90,6 +113,7 @@ export const strings = {
     },
     fit: {
       title: 'Fit',
+      label: 'Fit score',
       bands: { strong: 'Strong fit', good: 'Good fit', stretch: 'Stretch', long_shot: 'Long shot' },
       bandHints: {
         strong: 'You match this role well. Apply soon.',
@@ -118,6 +142,30 @@ export const strings = {
       showAll: (n: number) => `Show all ${n}`,
       showFewer: 'Show fewer',
     },
+    /** The evidence trace (docs/08-BRAND-UI.md §6.5): requirements as terminal lines. */
+    trace: {
+      windowTitle: 'evidence-trace',
+      count: (n: number) => plural(n, 'requirement', 'requirements'),
+      /** Status words next to the glyph (✓ met · ◐ partly met · ✕ missing): status is never color only. */
+      status: { met: 'met', partial: 'partly met', missing: 'missing' },
+      checking: 'checking…',
+      notChecked: 'not checked',
+      /** Where in the CV the quote was found, shown as `↳ cv/projects: “…”`. */
+      sourcePaths: {
+        experience: 'cv/experience',
+        project: 'cv/projects',
+        skills_list: 'cv/skills',
+        education: 'cv/education',
+        none: 'cv',
+      },
+      checkKey: 'check',
+      scoreKey: 'score',
+      evidenceVerified: (verified: number, total: number) => `evidence verified ${num(verified)}/${num(total)} quotes`,
+      dropped: (n: number) => `${num(n)} dropped`,
+      computedInCode: 'computed in code →',
+      scoreValue: (score: number, band: string) => `${score} · ${band}`,
+      bandWords: { strong: 'strong fit', good: 'good fit', stretch: 'stretch', long_shot: 'long shot' },
+    },
     gaps: {
       title: 'Close the gap',
       empty: 'No big gaps found.',
@@ -134,13 +182,18 @@ export const strings = {
     flaggedSr: '(has something to check)',
     copy: 'Copy',
     copyAll: 'Copy all',
-    copied: 'Copied',
+    copied: 'Copied ✓',
     copiedAnnouncement: 'Copied to clipboard.',
     copyFailed: "Couldn't copy. Select the text and copy it yourself.",
     redo: 'Redo',
     redoHint: 'Writes new drafts. Uses one of your daily redos.',
     disclaimer: "Review before sending. You're responsible for what you submit.",
     factsNote: 'We only used facts from your CV.',
+    /** Mono footer of the drafts card: "honesty check · 0 flags" / "· 2 to check". */
+    honestyCheck: 'honesty check',
+    honestyClean: '0 flags',
+    honestyToCheck: (n: number) => `${num(n)} to check`,
+    honestyPending: 'runs when writing ends',
     honestyTitle: 'Please check this before sending',
     honestyBody: (items: string) => `We may have added something that isn't in your CV: ${items}.`,
     bulletBefore: 'Before',
@@ -173,6 +226,26 @@ export const strings = {
     analysisDone: (verdict: string, band: string, score: number) =>
       `Analysis ready. ${verdict}. ${band}, ${score} out of 100.`,
     draftsDone: 'Your drafts are ready.',
+  },
+  demo: {
+    sectionAriaLabel: 'Sample run',
+    srDescription:
+      'Animated example of a sample run: a made-up CV is checked against a made-up AI Product Engineer job. It shows eligibility, each requirement with a quote from the CV, a fit score of 78 (a good fit) computed in code, and the start of a cover letter.',
+    caption: 'Sample run on a made-up CV. Paste yours below.',
+    windowTitle: 'evidence-trace · sample run',
+    streaming: '● streaming',
+    done: '✓ done',
+    status: { eligible: 'eligible', met: 'met', partial: 'partial', missing: 'missing' },
+    checkLine: (verified: number, total: number) => `evidence verified ${verified}/${total} quotes · `,
+    dropped: (n: number) => `${n} dropped`,
+    scoreLine: 'computed in code → ',
+    fitLabel: 'FIT SCORE',
+    bands: { strong: 'Strong fit', good: 'Good fit', stretch: 'Stretch', long_shot: 'Long shot' },
+    mustSummary: (met: number, total: number) => `${met} of ${total} must-haves met.`,
+    rubricNote: "Rubric computed in code, not the AI's mood.",
+    draftTabs: ['Cover letter', 'Cold DM', 'CV bullets'],
+    honestyFooter: (flags: number) => `honesty check · ${plural(flags, 'flag', 'flags')}`,
+    copy: 'Copy',
   },
   landing: {
     howItWorks: {
@@ -232,7 +305,7 @@ export const strings = {
   evals: {
     metaTitle: `Evals · ${BRAND_NAME}`,
     description:
-      'How accurate is the analysis? Real eval runs of the JobPilot pipeline on a fixed test set: eligibility and fit accuracy, prompt-injection resistance, latency and failures.',
+      `How accurate is the analysis? Real eval runs of the ${BRAND_NAME} pipeline on a fixed test set: eligibility and fit accuracy, prompt-injection resistance, latency and failures.`,
     heading: 'How well does it work?',
     intro:
       'We run the exact analysis and draft pipeline you use against a fixed set of test cases, one AI provider at a time, and publish the numbers as they come out. Nothing below is hand-picked or edited.',
@@ -260,6 +333,8 @@ export const strings = {
       cost: 'Cost per case',
       errors: 'Failed calls',
     },
+    /** Screen-reader word next to a metric's glyph (the color is never the only signal). */
+    tone: { pass: 'good', weak: 'weak', fail: 'poor' },
     ofTotal: (n: number, total: number) => `${num(n)} of ${num(total)}`,
     seconds: (ms: number) => `${(ms / 1000).toFixed(1)}s`,
     costValue: (usd: number) => (usd === 0 ? '$0 (free tier)' : `$${usd.toFixed(4)}`),
