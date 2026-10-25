@@ -90,7 +90,21 @@ export function profileEmbeddingText(p: { targetRoles: string[]; skills: string[
   attribution, rate limits), and only then set `sources.enabled = true` and `sources.attribution`.
   `User-Agent: ApplyVerdictBot/0.1 (+<APP_URL>)`, at most 1 request per second per source.
 
-## 6. Done-when (Day 3)
+## 6. Saved jobs (W12, as built)
+
+- Signed-in pages live in the `app/(app)/` route group (shared layout + header): `/onboarding`, `/feed`, `/jobs/new`,
+  `/jobs/[id]`.
+- `POST /api/jobs { jobText }` → `{ jobId }`: private job (`source_id 'user_paste'`, `owner_id` = user), title from the
+  first line (replaced by the model's `job.title` after the first analysis), location from `classifyLocationRules`.
+- **Deviation from 05-ARCHITECTURE §8:** instead of `/api/analyze` + `jobId`, saved jobs use their own routes, so the
+  v0 anonymous routes stay untouched:
+  - `POST /api/jobs/:id/analyze` (no body): CV and country from the profile, job from the DB. Same SSE format. Saves
+    `analyses` (upsert on user, job, profile_version) and adds `analysisId` to the `result` event. 5 a day (free).
+  - `POST /api/jobs/:id/draft { analysisId }`: drafts for a saved analysis, saved as three `drafts` rows. The first
+    set is free; each redo counts against "draft regenerate: 3 a day".
+- `components/analyzer/results-view.tsx` renders a run (streamed or saved) for both the landing analyzer and `/jobs/[id]`.
+
+## 7. Done-when (Day 3)
 
 - W10: Google + magic link sign-in work on workers.dev; `/api/me` returns the plan; signed-out `/feed` → `/login`.
 - W11: a new user parses a CV, reviews it, saves preferences; the profile row has `cv_parsed`, `embedding`,

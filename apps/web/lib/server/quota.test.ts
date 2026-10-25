@@ -16,6 +16,9 @@ function fakeDb(opts: { fail?: boolean } = {}) {
       return true as T;
     },
     async insert() {},
+    async insertReturning() {
+      return [];
+    },
     async select() {
       return [];
     },

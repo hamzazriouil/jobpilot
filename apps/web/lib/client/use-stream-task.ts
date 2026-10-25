@@ -117,3 +117,16 @@ export function useAnalyzeStream(): AnalyzeTask {
 export function useDraftStream(): DraftTask {
   return useStreamTask<DraftBody, PartialDrafts, DraftResultEvent>(DraftResultEvent, sanitizeDraftsPartial);
 }
+
+/** POST /api/jobs/:id/analyze takes no body: CV, country and job come from the user's account. */
+export type SavedAnalyzeBody = Record<string, never>;
+/** POST /api/jobs/:id/draft */
+export type SavedDraftBody = { analysisId: string };
+
+export function useSavedAnalyzeStream(): StreamTask<SavedAnalyzeBody, PartialAnalysis, AnalyzeResultEvent> {
+  return useStreamTask<SavedAnalyzeBody, PartialAnalysis, AnalyzeResultEvent>(AnalyzeResultEvent, sanitizeAnalysisPartial);
+}
+
+export function useSavedDraftStream(): StreamTask<SavedDraftBody, PartialDrafts, DraftResultEvent> {
+  return useStreamTask<SavedDraftBody, PartialDrafts, DraftResultEvent>(DraftResultEvent, sanitizeDraftsPartial);
+}

@@ -20,6 +20,11 @@ export class SupabaseError extends Error {
 export interface SupabaseAdmin {
   rpc<T>(fn: string, args: Record<string, unknown>): Promise<T>;
   insert(table: string, row: Record<string, unknown> | Record<string, unknown>[]): Promise<void>;
+  /**
+   * INSERT returning the stored rows. With `onConflict` (comma-separated columns) an existing row is
+   * merged instead (`resolution=merge-duplicates`), so retries don't fail on unique keys.
+   */
+  insertReturning<T>(table: string, row: Record<string, unknown> | Record<string, unknown>[], onConflict?: string): Promise<T[]>;
   /** `query` is a raw PostgREST query string, e.g. `select=count&subject=eq.user:…`. */
   select<T>(table: string, query: string): Promise<T[]>;
   /** PATCH rows matching equality `filters`; returns the updated rows. */
@@ -62,6 +67,12 @@ export function supabaseAdmin(env: AppEnv, fetchImpl: typeof fetch = fetch): Sup
     },
     async insert(table, row) {
       await call(table, { method: 'POST', headers: { ...headers, prefer: 'return=minimal' }, body: JSON.stringify(row) });
+    },
+    async insertReturning<T>(table: string, row: Record<string, unknown> | Record<string, unknown>[], onConflict?: string) {
+      const path = onConflict ? `${table}?on_conflict=${encodeURIComponent(onConflict)}` : table;
+      const prefer = onConflict ? 'return=representation,resolution=merge-duplicates' : 'return=representation';
+      const res = await call(path, { method: 'POST', headers: { ...headers, prefer }, body: JSON.stringify(row) });
+      return (await res.json()) as T[];
     },
     async select<T>(table: string, query: string) {
       const res = await call(`${table}?${query}`, { method: 'GET', headers });

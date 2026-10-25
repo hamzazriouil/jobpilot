@@ -19,6 +19,8 @@ export const ANON_ANALYZE_DAILY_LIMIT = 3;
 /** Signed-in limits (§9). Paid plans arrive in Phase 2. */
 export const USER_ANALYZE_DAILY_LIMIT = 5;
 export const PAID_ANALYZE_DAILY_LIMIT = 30;
+/** Draft rewrites of a saved analysis per signed-in free user per day (§9 "draft regenerate"). */
+export const USER_DRAFT_REDO_DAILY_LIMIT = 3;
 /** CV parses per signed-in free user per day (§9). */
 export const USER_PARSE_DAILY_LIMIT = 5;
 /** Magic-link emails per anonymous subject per day (protects the SMTP quota). */

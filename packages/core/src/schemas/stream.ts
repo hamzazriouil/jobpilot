@@ -26,6 +26,8 @@ export type HonestyFlag = z.infer<typeof HonestyFlag>;
 export const AnalyzeResultEvent = z.object({
   result: AnalysisResult,
   analysisToken: z.string(),
+  /** Phase 1, saved jobs only: the stored `analyses` row (POST /api/jobs/:id/analyze). */
+  analysisId: z.uuid().optional(),
 });
 export type AnalyzeResultEvent = z.infer<typeof AnalyzeResultEvent>;
 
