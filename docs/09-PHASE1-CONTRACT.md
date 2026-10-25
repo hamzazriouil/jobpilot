@@ -104,6 +104,22 @@ export function profileEmbeddingText(p: { targetRoles: string[]; skills: string[
     set is free; each redo counts against "draft regenerate: 3 a day".
 - `components/analyzer/results-view.tsx` renders a run (streamed or saved) for both the landing analyzer and `/jobs/[id]`.
 
+## 6b. Matching + feed (W14/W15, Day 4, as built)
+
+- **Deviation from 05-ARCHITECTURE §5.5:** daily matches are built **lazily**, not by a 06:00 cron. The first `/feed`
+  visit of a UTC day calls `ensureTodayMatches()` (`apps/web/lib/server/matching.ts`): `match_jobs(user, N)` →
+  `daily_matches` (rank 1 = most similar), N = 5 free / 30 paid. A new user's first feed visit right after onboarding
+  gives the instant first matches. No cron is needed until digest emails exist.
+- Matched jobs are analyzed from the feed (no drafts), one at a time, on a separate `match_analyze` counter (limit N), so
+  they don't use the user's 5 analyses a day. Once it runs out, `POST /api/jobs/:id/analyze` falls back to the normal
+  quota. The saved analysis is linked via `daily_matches.analysis_id`.
+- **Budget guard:** when today's `llm_calls` pass 80% of `LLM_DAILY_CALL_BUDGET` (1,000), only 3 feed analyses per user
+  are free; the rest are on demand.
+- `PATCH /api/feed/:jobId { dismissed }` runs as the user (RLS: update `dismissed` on own rows only).
+- Each card shows `sources.attribution` (linked to the source site) and the original post link, both `rel="noopener"`
+  (never nofollow), as docs/10-SOURCES.md requires.
+- Dev only: `/dev/feed-preview` renders fixture cards (404 in production).
+
 ## 7. Done-when (Day 3)
 
 - W10: Google + magic link sign-in work on workers.dev; `/api/me` returns the plan; signed-out `/feed` → `/login`.

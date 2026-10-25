@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getRequestContext } from '@/lib/server/env';
 import { apiErrorResponse, INTERNAL_MESSAGE, llmFailure, logError } from '@/lib/server/http';
 import { buildProviderConfig, llmSink, routingCountry } from '@/lib/server/llm';
+import { llmBudgetTight, loadPlan, MATCH_ANALYZE_FEATURE, matchAnalysesLeft, matchAnalyzeLimit } from '@/lib/server/matching';
 import { acquireGate, USER_ANALYZE_DAILY_LIMIT, userSubject } from '@/lib/server/quota';
 import { analysisToRow, loadJob, loadProfileForAnalysis } from '@/lib/server/saved-jobs';
 import { sseResponse } from '@/lib/server/sse';
@@ -16,6 +17,8 @@ import { createSupabaseServer, requireUser } from '@/lib/supabase/server';
 // but the CV and country come from the user's profile and the job from the DB, and the result is
 // saved in `analyses` (cache key: user, job, profile_version). The `result` event carries
 // `analysisId`; the jobs page then calls /api/jobs/:id/draft. Free users: 5 analyses a day (§9).
+// A job from the user's daily matches is analyzed on the separate 'match_analyze' counter first
+// (lib/server/matching.ts), and the saved analysis is linked to its daily_matches row.
 
 export const dynamic = 'force-dynamic';
 
@@ -48,11 +51,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (!job) return apiErrorResponse('not_found', 'Job not found.', 404);
   if (!profile) return apiErrorResponse('bad_input', 'Finish setting up your profile first: we analyze jobs against your CV.', 400);
 
+  const quota = await pickQuota(db, supabase, user.id, job.id);
   const gate = await acquireGate({
     db,
     subject: userSubject(user.id),
     endpoint: 'analyze',
-    quota: { feature: 'analyze', limit: USER_ANALYZE_DAILY_LIMIT },
+    quota,
     waitUntil: rc.waitUntil,
   });
   if (gate.outcome === 'locked') return apiErrorResponse('busy', 'An analysis is already running. Please wait a few seconds.', 429);
@@ -100,6 +104,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
             .catch((err: unknown) => logError('job_title_update_failed', err)),
         );
       }
+      if (saved && quota.matched) {
+        rc.waitUntil(
+          db
+            .update('daily_matches', { user_id: user.id, job_id: job.id }, { analysis_id: saved.id })
+            .catch((err: unknown) => logError('match_link_failed', err)),
+        );
+      }
       const event: AnalyzeResultEvent = {
         result,
         analysisToken: await signAnalysisToken(result, { cvText, jobText }, secret),
@@ -113,4 +124,24 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       gate.release();
     }
   });
+}
+
+/** Matched jobs use the free 'match_analyze' counter while it lasts, then the normal quota. */
+async function pickQuota(
+  db: NonNullable<ReturnType<typeof supabaseAdmin>>,
+  supabase: Awaited<ReturnType<typeof createSupabaseServer>>,
+  userId: string,
+  jobId: string,
+): Promise<{ feature: string; limit: number; matched: boolean }> {
+  const normal = { feature: 'analyze', limit: USER_ANALYZE_DAILY_LIMIT, matched: false };
+  try {
+    const { data: match } = await supabase.from('daily_matches').select('job_id').eq('user_id', userId).eq('job_id', jobId).maybeSingle();
+    if (!match) return normal;
+    const limit = matchAnalyzeLimit(await loadPlan(supabase, userId), await llmBudgetTight(db));
+    if ((await matchAnalysesLeft(db, userId, limit)) <= 0) return { ...normal, matched: true };
+    return { feature: MATCH_ANALYZE_FEATURE, limit, matched: true };
+  } catch (err) {
+    logError('match_quota_check_failed', err);
+    return normal;
+  }
 }
