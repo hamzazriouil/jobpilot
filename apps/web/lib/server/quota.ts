@@ -16,6 +16,17 @@ import type { SupabaseAdmin } from './supabase';
 // through. The Cloudflare WAF rate-limit rule on /api/* is the backstop.
 
 export const ANON_ANALYZE_DAILY_LIMIT = 3;
+/** Signed-in limits (§9). Paid plans arrive in Phase 2. */
+export const USER_ANALYZE_DAILY_LIMIT = 5;
+export const PAID_ANALYZE_DAILY_LIMIT = 30;
+/** CV parses per signed-in free user per day (§9). */
+export const USER_PARSE_DAILY_LIMIT = 5;
+/** Magic-link emails per anonymous subject per day (protects the SMTP quota). */
+export const MAGIC_LINK_DAILY_LIMIT = 5;
+
+export function userSubject(userId: string): string {
+  return `user:${userId}`;
+}
 export const LOCK_WINDOW_MS = 10_000;
 
 export type GateOutcome = 'allowed' | 'locked' | 'quota_exceeded' | 'unavailable';

@@ -3,4 +3,5 @@
 export * from './text';
 export * from './analyze';
 export * from './draft';
+export * from './parse';
 export * from './providers-env';

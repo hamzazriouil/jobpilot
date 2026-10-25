@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // Node types for the CLI and tests; the few Workers runtime types the Worker needs are declared
+  // in src/env.ts (mixing @cloudflare/workers-types with lib.dom/node globals causes conflicts).
+  "compilerOptions": { "noEmit": true, "types": ["node"] },
+  "include": ["src", "test"]
+}

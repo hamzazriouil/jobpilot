@@ -1,49 +1,24 @@
 import { headers } from 'next/headers';
-import { COUNTRY_REGIONS, normalizeCountryCode } from '@jobpilot/core/regions';
 import Link from 'next/link';
-import { Analyzer, type CountryOption } from '@/components/analyzer/analyzer';
+import { Analyzer } from '@/components/analyzer/analyzer';
 import { DemoTrace } from '@/components/landing/demo-trace';
 import { SampleRunButton } from '@/components/landing/sample-run-button';
 import { LandingSections } from '@/components/landing-sections';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { buttonVariants } from '@/components/ui/button';
+import { countryOptions, defaultCountryFrom } from '@/lib/countries';
 import { strings } from '@/lib/strings';
 import { cn } from '@/lib/utils';
 
 // Landing + analyzer + results (docs/03-UI-UX.md §4.1–4.2, docs/08-BRAND-UI.md §6). The page itself
 // is a server component; the interactive parts are <Analyzer>, <DemoTrace> and <SampleRunButton>.
 
-/** Used when Cloudflare's geo header is missing (local dev) or not a country we know. */
-const FALLBACK_COUNTRY = 'MA';
-
-/** Country names are resolved here on the server so client and server HTML always match. */
-function countryOptions(): CountryOption[] {
-  let names: Intl.DisplayNames | null = null;
-  try {
-    names = new Intl.DisplayNames(['en'], { type: 'region' });
-  } catch {
-    names = null;
-  }
-  return Object.keys(COUNTRY_REGIONS)
-    .map((code) => {
-      let name = code;
-      try {
-        name = names?.of(code) ?? code;
-      } catch {
-        // unknown to this ICU build: keep the code
-      }
-      return { code, name };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, 'en'));
-}
-
 export default async function HomePage() {
   const s = strings;
   const countries = countryOptions();
   // Pre-select the visitor's country from Cloudflare's geo header; the user can change it.
-  const geo = normalizeCountryCode((await headers()).get('cf-ipcountry') ?? '');
-  const defaultCountry = geo && countries.some((c) => c.code === geo) ? geo : FALLBACK_COUNTRY;
+  const defaultCountry = defaultCountryFrom((await headers()).get('cf-ipcountry'), countries);
 
   return (
     <div className="flex min-h-dvh flex-col text-base">

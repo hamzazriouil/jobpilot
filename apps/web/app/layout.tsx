@@ -49,7 +49,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    // Dark is the default theme. suppressHydrationWarning: THEME_INIT_SCRIPT may swap `dark` for `light`\n    // on <html> before React hydrates.
+    // Dark is the default theme. suppressHydrationWarning: THEME_INIT_SCRIPT may swap `dark` for `light`
+    // on <html> before React hydrates.
     <html lang="en" className={`dark ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />

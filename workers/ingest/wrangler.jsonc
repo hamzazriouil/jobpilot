@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Ingest Worker (docs/05-ARCHITECTURE.md §5.4, docs/09-PHASE1-CONTRACT.md §5). No public routes:
+  // the fetch handler returns 404; all work runs from the crons below.
+  "name": "jobpilot-ingest",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "triggers": {
+    // "0 */6 * * *" → ingest every enabled source; "0 6 * * *" → rpc/run_maintenance
+    // (daily matching joins it on Day 4). At 06:00 both fire, as two separate invocations.
+    "crons": ["0 */6 * * *", "0 6 * * *"]
+  },
+  // Workers AI (embeddings). Not a secret: a binding.
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Secrets (set with `npx wrangler secret put NAME`, never here):
+  //   SUPABASE_URL               Supabase project URL (same value as web's NEXT_PUBLIC_SUPABASE_URL)
+  //   SUPABASE_SERVICE_ROLE_KEY  service role, for jobs/sources writes and run_maintenance
+  //   GOOGLE_GENERATIVE_AI_API_KEY  optional: LLM fallback for 'unclear' locations (skipped if unset)
+  //   HIMALAYAS_API_KEY          optional: free key from himalayas.app/api-keys (higher rate limit)
+  // Optional vars: INGEST_MAX_PAGES (default 10 per source per run), LLM_FALLBACK_CAP (default 10 per run).
+  "vars": {
+    "APP_URL": "https://jobpilot-web.buildli731.workers.dev"
+  }
+}

@@ -8,6 +8,8 @@ import type { WorkersAiBinding } from '@jobpilot/core/llm';
 export interface AppEnv {
   APP_URL?: string;
   NEXT_PUBLIC_SUPABASE_URL?: string;
+  /** Public anon key (RLS-protected). Read at runtime, never inlined at build time (Phase 1 auth). */
+  NEXT_PUBLIC_SUPABASE_ANON_KEY?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   GOOGLE_GENERATIVE_AI_API_KEY?: string;
   /** Optional override of the Gemini model id (default: DEFAULT_GEMINI_MODEL in @jobpilot/core/llm). */

@@ -1,9 +1,10 @@
-// Sticky site header (docs/08-BRAND-UI.md §6.1): mark + wordmark, nav, theme toggle, primary CTA.
-// On phones (<640px) the text nav is hidden; mark, toggle and CTA stay.
+// Sticky site header (docs/08-BRAND-UI.md §6.1): mark + wordmark, nav, theme toggle, sign-in link,
+// primary CTA. On phones (<640px) the text nav is hidden; mark, toggle, sign-in and CTA stay.
 import { BrandMark } from '@/components/brand-mark';
 import { buttonVariants } from '@/components/ui/button';
 import { strings } from '@/lib/strings';
 import { cn } from '@/lib/utils';
+import { HeaderAuthLink } from './header-auth-link';
 import { ThemeToggle } from './theme-toggle';
 
 const focusRing = 'outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
@@ -37,6 +38,12 @@ export function SiteHeader() {
             </ul>
           </nav>
           <ThemeToggle />
+          <HeaderAuthLink
+            className={cn(
+              'inline-flex min-h-10 items-center rounded-md px-2 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground',
+              focusRing,
+            )}
+          />
           <a href={s.ctaHref} className={cn(buttonVariants({ variant: 'default' }), 'px-3.5 sm:px-4')}>
             {s.cta}
           </a>

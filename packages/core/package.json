@@ -11,7 +11,9 @@
     "./honesty": "./src/honesty/index.ts",
     "./llm": "./src/llm/index.ts",
     "./prompts": "./src/prompts/index.ts",
-    "./pipeline": "./src/pipeline/index.ts"
+    "./pipeline": "./src/pipeline/index.ts",
+    "./jobs": "./src/jobs/index.ts",
+    "./embed": "./src/embed/index.ts"
   },
   "scripts": {
     "test": "vitest run",

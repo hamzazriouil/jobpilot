@@ -17,7 +17,8 @@ describe('migration + seed', () => {
     expect(rows.map((r) => r.id).sort()).toEqual([
       'arbeitnow', 'himalayas', 'hn', 'remoteok', 'remotive', 'user_paste', 'wwr',
     ]);
-    expect(rows.filter((r) => r.enabled).map((r) => r.id)).toEqual(['user_paste']);
+    // Feed sources are enabled only after their terms were read (docs/10-SOURCES.md).
+    expect(rows.filter((r) => r.enabled).map((r) => r.id)).toEqual(['himalayas', 'remoteok', 'user_paste']);
   });
 
   it('seed is idempotent', async () => {

@@ -16,6 +16,12 @@ function fakeDb(opts: { fail?: boolean } = {}) {
       return true as T;
     },
     async insert() {},
+    async select() {
+      return [];
+    },
+    async update() {
+      return [];
+    },
     async deleteWhere(_table, f) {
       counters.delete(`${f.subject}|${f.feature}`);
     },

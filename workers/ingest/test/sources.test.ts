@@ -1,0 +1,122 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it, vi } from 'vitest';
+import { silentLog } from '../src/log';
+import { himalayas, normalizeHimalayasJob, parseHimalayasPage } from '../src/sources/himalayas';
+import { normalizeRemoteOkJob, remoteok } from '../src/sources/remoteok';
+import type { SourcePage } from '../src/sources';
+
+// Trimmed real responses (2026-10-25), descriptions cut to 1,500 chars.
+const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
+const himalayasPage = fixture('himalayas.json') as { nextCursor: string; jobs: unknown[] };
+const remoteOkFeed = fixture('remoteok.json') as unknown[];
+
+async function collect(gen: AsyncGenerator<SourcePage>): Promise<SourcePage[]> {
+  const out: SourcePage[] = [];
+  for await (const p of gen) out.push(p);
+  return out;
+}
+
+describe('himalayas adapter', () => {
+  const jobs = himalayasPage.jobs.map(normalizeHimalayasJob);
+  const byTitle = (t: string) => jobs.find((j) => j?.title.startsWith(t))!;
+
+  it('normalizes every fixture job', () => {
+    expect(jobs.every((j) => j !== null)).toBe(true);
+    expect(parseHimalayasPage(himalayasPage).nextCursor).toBe(himalayasPage.nextCursor);
+  });
+
+  it('uses applicationLink as the url and the guid path as the source id', () => {
+    const j = byTitle('Full Stack Engineer');
+    expect(j.url).toBe('https://himalayas.app/companies/dante/jobs/full-stack-engineer?utm_source=api');
+    expect(j.sourceJobId).toBe('dante/jobs/full-stack-engineer');
+    expect(j.companyUrl).toBe('https://himalayas.app/companies/dante');
+    expect(j.description).not.toMatch(/<[a-z]/i);
+  });
+
+  it('maps structured location restrictions to eligibility', () => {
+    expect(byTitle('Talent Database')).toMatchObject({ eligibilityType: 'regions', allowedRegions: ['IN'], locationRaw: 'India' });
+    const emea = byTitle('Revenue Operations Manager');
+    expect(emea.eligibilityType).toBe('regions');
+    expect(emea.allowedRegions).toEqual(expect.arrayContaining(['MA', 'FR', 'NG', 'AE', 'GB']));
+    expect(emea.allowedRegions).not.toContain('US');
+    expect(byTitle('🌎Applied Scientist')).toMatchObject({ eligibilityType: 'worldwide', allowedRegions: [], locationRaw: 'Worldwide' });
+  });
+
+  it('maps seniority and USD salary to yearly; other currencies → null', () => {
+    expect(byTitle('Full Stack Engineer')).toMatchObject({ seniority: 'mid', salaryMinUsd: 150_000, salaryMaxUsd: 200_000 });
+    expect(byTitle('Campaign Coordinator')).toMatchObject({ seniority: 'junior', salaryMinUsd: 52_000, salaryMaxUsd: 72_800 });
+    expect(byTitle('Senior Product Marketing')).toMatchObject({ seniority: 'lead', salaryMinUsd: null, salaryMaxUsd: null });
+    expect(byTitle('Finance Director').seniority).toBe('lead');
+  });
+
+  it('keeps at most 8 tags and drops SEO-style ones', () => {
+    for (const j of jobs) {
+      expect(j!.tags.length).toBeLessThanOrEqual(8);
+      expect(j!.tags.some((t) => /\b(?:jobs?|remote)\b/.test(t))).toBe(false);
+    }
+  });
+
+  it('invalid items → null', () => {
+    expect(normalizeHimalayasJob({ title: 'x' })).toBeNull();
+    expect(normalizeHimalayasJob({ ...(himalayasPage.jobs[0] as object), applicationLink: 'not a url' })).toBeNull();
+  });
+
+  it('pages: follows nextCursor, sends the API key, stops at maxPages', async () => {
+    const getJson = vi.fn(async (url: string, _headers?: Record<string, string>) => {
+      return { ...himalayasPage, nextCursor: url.includes('cursor=') ? null : 'abc' };
+    });
+    const pages = await collect(himalayas.pages({ getJson, maxPages: 5, apiKey: 'k', log: silentLog }));
+    expect(pages).toHaveLength(2);
+    expect(getJson.mock.calls[0]![0]).toBe('https://himalayas.app/jobs/api?limit=20');
+    expect(getJson.mock.calls[1]![0]).toBe('https://himalayas.app/jobs/api?limit=20&cursor=abc');
+    expect(getJson.mock.calls[0]![1]).toEqual({ authorization: 'Bearer k' });
+    expect(pages[0]).toMatchObject({ fetched: 7, invalid: 0 });
+
+    const one = await collect(himalayas.pages({ getJson: async () => ({ ...himalayasPage }), maxPages: 1, log: silentLog }));
+    expect(one).toHaveLength(1);
+  });
+});
+
+describe('remoteok adapter', () => {
+  it('skips the legal-notice element', async () => {
+    const pages = await collect(remoteok.pages({ getJson: async () => remoteOkFeed, maxPages: 1, log: silentLog }));
+    expect(pages).toHaveLength(1);
+    expect(pages[0]!.fetched).toBe(remoteOkFeed.length - 1);
+    expect(pages[0]!.jobs).toHaveLength(remoteOkFeed.length - 1);
+  });
+
+  const jobs = remoteOkFeed.slice(1).map(normalizeRemoteOkJob);
+  const byTitle = (t: string) => jobs.find((j) => j?.title === t)!;
+
+  it('normalizes ids, urls, dates and leaves eligibility to the rules', () => {
+    const j = byTitle('Senior Frontend Engineer');
+    expect(j).toMatchObject({
+      sourceId: 'remoteok',
+      sourceJobId: '1137562',
+      url: 'https://remoteOK.com/remote-jobs/remote-senior-frontend-engineer-b2spin-1137562',
+      company: 'B2spin',
+      locationRaw: null,
+      eligibilityType: null,
+      seniority: 'senior',
+    });
+    expect(j.postedAt).toBe('2026-10-23T16:00:12.000Z');
+  });
+
+  it('repairs mojibake and decodes entities', () => {
+    expect(byTitle('Technical Account Manager').locationRaw).toBe('Ciudad de México, Mexico');
+    expect(byTitle('Travel Support Specialist').company).toBe('Aisles & Abroad');
+    for (const j of jobs) expect(j!.description).not.toMatch(/â\u0080/);
+  });
+
+  it('salary 0 → null; real values kept as yearly USD', () => {
+    expect(byTitle('Senior Frontend Engineer')).toMatchObject({ salaryMinUsd: null, salaryMaxUsd: null });
+    expect(byTitle('Senior DevOps Engineer')).toMatchObject({ salaryMinUsd: 50_000, salaryMaxUsd: 150_000 });
+  });
+
+  it('drops noise tags that Remote OK puts on every post', () => {
+    const tags = byTitle('Senior Frontend Engineer').tags;
+    expect(tags).toContain('react');
+    expect(tags).not.toContain('digital nomad');
+    expect(tags).not.toContain('marketing');
+  });
+});
