@@ -76,3 +76,12 @@ export function matchesFilters(item: FeedItem, band: BandFilter, eligibility: El
 export function daysAgo(iso: string, now: Date = new Date()): number {
   return Math.max(0, Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000));
 }
+
+/** The line under the feed title showing that job sources are checked every few hours. */
+export interface FeedStatus {
+  lastCheckedAt: string;
+  newToday: number;
+  /** Today's new jobs the user can apply to: in today's matches or in "New today". */
+  open: number;
+  nextAt: string;
+}

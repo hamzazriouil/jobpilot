@@ -4,10 +4,14 @@ import {
   dailyMatchLimit,
   ensureTodayMatches,
   FREE_DAILY_MATCHES,
+  FRESH_SCAN,
+  freshJobs,
   llmBudgetTight,
   matchAnalysesLeft,
   matchAnalyzeLimit,
   matchRows,
+  nextIngestAt,
+  pickFresh,
   utcDay,
 } from './matching';
 import type { SupabaseAdmin } from './supabase';
@@ -92,5 +96,29 @@ describe('budget and allowance', () => {
     expect(await matchAnalysesLeft(fakeDb({ select }), 'u', 5, NOW)).toBe(3);
     expect(select).toHaveBeenCalledWith('usage_counters', expect.stringContaining('feature=eq.match_analyze&day=eq.2026-10-26'));
     expect(await matchAnalysesLeft(fakeDb(), 'u', 5, NOW)).toBe(5);
+  });
+});
+
+describe('new today', () => {
+  it('keeps the candidates added today, best first', () => {
+    const candidates = [
+      { job_id: 'old', similarity: 0.8 },
+      { job_id: 'b', similarity: 0.75 },
+      { job_id: 'a', similarity: 0.7 },
+    ];
+    expect(pickFresh(candidates, new Set(['a', 'b', 'not-eligible']))).toEqual(['b', 'a']);
+  });
+  it('finds the next ingest run on the 6-hour UTC grid', () => {
+    expect(nextIngestAt(NOW).toISOString()).toBe('2026-10-26T12:00:00.000Z');
+    expect(nextIngestAt(new Date('2026-10-26T18:00:00Z')).toISOString()).toBe('2026-10-27T00:00:00.000Z');
+  });
+  it('counts today’s jobs and reads the latest source run', async () => {
+    const select = vi.fn(async (table: string) =>
+      table === 'jobs' ? [{ id: 'a' }, { id: 'b' }, { id: 'c' }] : [{ last_run_at: '2026-10-26T06:00:30Z' }],
+    ) as SupabaseAdmin['select'];
+    const rpc = vi.fn(async () => [{ job_id: 'z', similarity: 0.9 }, { job_id: 'c', similarity: 0.7 }]) as SupabaseAdmin['rpc'];
+    expect(await freshJobs(fakeDb({ select, rpc }), 'u', NOW)).toEqual({ lastCheckedAt: '2026-10-26T06:00:30Z', newToday: 3, openIds: ['c'] });
+    expect(select).toHaveBeenCalledWith('jobs', expect.stringContaining('ingested_at=gte.2026-10-26T00:00:00Z'));
+    expect(rpc).toHaveBeenCalledWith('match_jobs', { p_user: 'u', p_limit: FRESH_SCAN });
   });
 });

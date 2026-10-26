@@ -43,9 +43,19 @@ export default function FeedPreviewPage() {
     job('4', { title: 'LLM Platform Engineer', company: 'Initech', matchDate: yesterday, analysis: { score: 67, band: 'good', verdict: 'unclear', mustMet: 3, mustTotal: 4, topGap: null, current: true } }),
     job('5', { title: 'Prompt Engineer', company: 'Umbrella', dismissed: true }),
   ];
+  const fresh: FeedItem[] = [
+    job('6', { title: 'AI Automation Engineer', company: 'Hooli', postedAt: posted(0), attribution: { label: 'Via Himalayas', href: 'https://himalayas.app' } }),
+    job('7', { title: 'Junior LLM Engineer', company: 'Pied Piper', eligibilityType: 'regions', allowedRegions: ['EMEA'], analysis: { score: 72, band: 'good', verdict: 'eligible', mustMet: 4, mustTotal: 5, topGap: 'Python at scale', current: true } }),
+  ];
+  const status = {
+    lastCheckedAt: new Date(Math.floor(Date.now() / 21_600_000) * 21_600_000 + 30_000).toISOString(),
+    newToday: 26,
+    open: 2,
+    nextAt: new Date(Math.floor(Date.now() / 21_600_000) * 21_600_000 + 21_600_000).toISOString(),
+  };
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
-      <FeedView items={items} today={today} autoAnalyze={0} loadFailed={false} />
+      <FeedView items={items} fresh={fresh} status={status} today={today} autoAnalyze={0} loadFailed={false} />
     </main>
   );
 }

@@ -563,6 +563,13 @@ export const strings = {
       bands: { strong: 'Strong', good: 'Good', stretch: 'Stretch', long_shot: 'Long shot' },
     },
     analyzeHint: 'Today’s matches are analyzed for free. Others use your daily analyses.',
+    status: (o: { checkedAt: string; newToday: number; open: number; nextAt: string }) =>
+      `Job sources checked ${o.checkedAt} UTC · ${o.newToday} new ${o.newToday === 1 ? 'job' : 'jobs'} today, ` +
+      `${o.open === 0 ? 'none' : o.open} open to you · next check ${o.nextAt} UTC`,
+    fresh: {
+      title: 'New today',
+      hint: 'Jobs added after your daily matches were picked, open to you. Analyzing one uses your daily analyses.',
+    },
     loadFailed: 'We couldn’t load your feed. Refresh the page to try again.',
     empty: {
       title: 'No new matches today',

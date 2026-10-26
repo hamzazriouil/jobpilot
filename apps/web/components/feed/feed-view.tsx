@@ -2,11 +2,13 @@
 
 // /feed client (docs/03-UI-UX.md §4.5, W15): today's matches, filters, dismiss/undo, earlier days.
 // Cards without an analysis are analyzed one at a time (the analyze route allows one run per user
-// at a time), first the `autoAnalyze` free ones automatically, then any card on request.
+// at a time), first the `autoAnalyze` free ones automatically, then any card on request. "New today"
+// cards (jobs added after the matches were picked) are only analyzed on request and can't be
+// dismissed (they have no daily_matches row).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnalyzeResultEvent } from '@jobpilot/core/schemas';
 import { postSse, StreamError } from '@/lib/client/stream';
-import { feedAnalysisFrom, matchesFilters, type BandFilter, type EligibilityFilter, type FeedItem } from '@/lib/feed';
+import { feedAnalysisFrom, matchesFilters, type BandFilter, type EligibilityFilter, type FeedItem, type FeedStatus } from '@/lib/feed';
 import { strings } from '@/lib/strings';
 import { buttonVariants } from '@/components/ui/button';
 import { LABEL_CLASS } from '@/components/analyzer/tone';
@@ -18,20 +20,26 @@ const SELECT_CLASS =
   'h-9 rounded-md border border-border-strong bg-card px-2 text-sm text-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
 
 const dateFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'UTC' });
 
 export function FeedView({
   items: initial,
+  fresh: initialFresh,
+  status,
   today,
   autoAnalyze,
   loadFailed,
 }: {
   items: FeedItem[];
+  fresh: FeedItem[];
+  status: FeedStatus | null;
   today: string;
   autoAnalyze: number;
   loadFailed: boolean;
 }) {
   const s = strings.feed;
   const [items, setItems] = useState(initial);
+  const [fresh, setFresh] = useState(initialFresh);
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [band, setBand] = useState<BandFilter>('all');
   const [eligibility, setEligibility] = useState<EligibilityFilter>('all');
@@ -56,7 +64,9 @@ export function FeedView({
           requirements: result.requirements,
           gaps: result.gaps,
         });
-        setItems((list) => list.map((it) => (it.jobId === jobId ? { ...it, analysis } : it)));
+        const withAnalysis = (list: FeedItem[]) => list.map((it) => (it.jobId === jobId ? { ...it, analysis } : it));
+        setItems(withAnalysis);
+        setFresh(withAnalysis);
         setRuns((r) => ({ ...r, [jobId]: 'idle' }));
       } catch (err) {
         const code = err instanceof StreamError ? err.code : 'internal';
@@ -111,17 +121,19 @@ export function FeedView({
   const dismissed = items.filter((it) => it.dismissed);
   const todayAll = items.filter((it) => it.matchDate === today && !it.dismissed);
   const strongCount = todayAll.filter((it) => it.analysis?.band === 'strong').length;
+  const freshVisible = fresh.filter((it) => matchesFilters(it, band, eligibility));
   const filtering = band !== 'all' || eligibility !== 'all';
 
-  const card = (it: FeedItem) => (
+  const renderCard = (it: FeedItem, dismissable: boolean) => (
     <FeedCard
       key={it.jobId}
       item={it}
       run={runs[it.jobId] ?? 'idle'}
       onAnalyze={() => enqueue([it.jobId])}
-      onDismiss={() => void setDismissed(it.jobId, true)}
+      onDismiss={dismissable ? () => void setDismissed(it.jobId, true) : undefined}
     />
   );
+  const card = (it: FeedItem) => renderCard(it, true);
 
   return (
     <section className="grid gap-6">
@@ -130,8 +142,9 @@ export function FeedView({
           <p className={LABEL_CLASS}>{s.today}</p>
           <h1 className="mt-1 text-3xl font-bold tracking-[-0.03em]">{s.summary(todayAll.length, strongCount)}</h1>
           <p className="mt-2 max-w-xl text-pretty text-sm text-muted-foreground">{s.intro}</p>
+          {status && <p className="mt-2 max-w-xl font-mono text-xs text-subtle">{statusText(status, today)}</p>}
         </div>
-        {items.length > 0 && (
+        {items.length + fresh.length > 0 && (
           <div className="flex flex-wrap items-center gap-2" role="group" aria-label={s.filters.label}>
             <label className="sr-only" htmlFor="feed-band">
               {s.filters.band}
@@ -168,7 +181,7 @@ export function FeedView({
         </p>
       )}
 
-      {items.length === 0 && !loadFailed ? (
+      {items.length === 0 && fresh.length === 0 && !loadFailed ? (
         <EmptyFeed />
       ) : (
         <>
@@ -189,9 +202,19 @@ export function FeedView({
               </button>
             </p>
           ) : (
-            todayAll.length === 0 && <EmptyFeed compact />
+            todayAll.length === 0 && fresh.length === 0 && <EmptyFeed compact />
           )}
           {todays.length > 0 && <p className="font-mono text-xs text-subtle">{s.analyzeHint}</p>}
+
+          {freshVisible.length > 0 && (
+            <div className="grid gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">{s.fresh.title}</h2>
+                <p className="mt-1 text-sm text-pretty text-muted-foreground">{s.fresh.hint}</p>
+              </div>
+              {freshVisible.map((it) => renderCard(it, false))}
+            </div>
+          )}
 
           {earlier.length > 0 && (
             <details className="rounded-xl border">
@@ -235,6 +258,14 @@ export function FeedView({
       )}
     </section>
   );
+}
+
+function statusText(st: FeedStatus, today: string): string {
+  const at = (iso: string) => {
+    const d = new Date(iso);
+    return iso.slice(0, 10) === today ? timeFmt.format(d) : `${dateFmt.format(d)}, ${timeFmt.format(d)}`;
+  };
+  return strings.feed.status({ checkedAt: at(st.lastCheckedAt), newToday: st.newToday, open: st.open, nextAt: at(st.nextAt) });
 }
 
 function groupByDate(items: FeedItem[]): Array<[string, FeedItem[]]> {

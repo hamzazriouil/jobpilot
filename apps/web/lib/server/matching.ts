@@ -71,6 +71,48 @@ export async function ensureTodayMatches(db: SupabaseAdmin, userId: string, o: {
   return rows.length;
 }
 
+// "New today" (feed section under the daily matches): the ingest Worker adds jobs every few hours,
+// but daily matches are picked once a day, so jobs added later would wait until tomorrow. The
+// section lists today's new jobs the user can apply to, best match first, without auto analysis.
+// It reuses match_jobs (eligibility, not matched or tracked before) with a wide limit and keeps the
+// jobs ingested today: a new job outside the user's top FRESH_SCAN candidates is a weak match anyway.
+
+/** Ingest Worker cron (workers/ingest/wrangler.jsonc: `0 *\/6 * * *`). Shown as "next check". */
+export const INGEST_EVERY_HOURS = 6;
+export const FRESH_SCAN = 500;
+export const FRESH_SHOWN = 10;
+
+export interface FreshJobs {
+  /** Latest run of any enabled job source (null before the first run). */
+  lastCheckedAt: string | null;
+  /** Public jobs added today (UTC), whoever can apply. */
+  newToday: number;
+  /** Jobs added today that the user can apply to and hasn't been matched with, best first. */
+  openIds: string[];
+}
+
+/** Candidates (best first) that are among today's new jobs, in the same order. */
+export function pickFresh(candidates: MatchCandidate[], newIds: Set<string>): string[] {
+  return candidates.filter((c) => newIds.has(c.job_id)).map((c) => c.job_id);
+}
+
+/** Start of the next ingest run after `now` (crons fire on whole multiples of INGEST_EVERY_HOURS, UTC). */
+export function nextIngestAt(now: Date = new Date()): Date {
+  const step = INGEST_EVERY_HOURS * 3_600_000;
+  return new Date(Math.floor(now.getTime() / step) * step + step);
+}
+
+export async function freshJobs(db: SupabaseAdmin, userId: string, now: Date = new Date()): Promise<FreshJobs> {
+  const since = `${utcDay(now)}T00:00:00Z`;
+  const [newRows, candidates, runs] = await Promise.all([
+    db.select<{ id: string }>('jobs', `select=id&owner_id=is.null&ingested_at=gte.${since}&limit=2000`),
+    db.rpc<MatchCandidate[]>('match_jobs', { p_user: userId, p_limit: FRESH_SCAN }),
+    db.select<{ last_run_at: string }>('sources', 'select=last_run_at&enabled=is.true&kind=neq.user&last_run_at=not.is.null&order=last_run_at.desc&limit=1'),
+  ]);
+  const newIds = new Set(newRows.map((r) => r.id));
+  return { lastCheckedAt: runs[0]?.last_run_at ?? null, newToday: newIds.size, openIds: pickFresh(candidates ?? [], newIds) };
+}
+
 /** True once today's LLM calls (all users) pass BUDGET_GUARD_RATIO of the daily budget. */
 export async function llmBudgetTight(db: SupabaseAdmin, now: Date = new Date()): Promise<boolean> {
   const offset = Math.floor(LLM_DAILY_CALL_BUDGET * BUDGET_GUARD_RATIO);

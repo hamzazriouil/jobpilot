@@ -21,7 +21,8 @@ export function FeedCard({
   item: FeedItem;
   run: RunState;
   onAnalyze: () => void;
-  onDismiss: () => void;
+  /** Left out for cards that can't be dismissed ("New today"). */
+  onDismiss?: () => void;
 }) {
   const c = strings.feed.card;
   const a = item.analysis;
@@ -84,9 +85,11 @@ export function FeedCard({
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
-          {c.dismiss}
-        </Button>
+        {onDismiss && (
+          <Button type="button" variant="ghost" size="sm" onClick={onDismiss}>
+            {c.dismiss}
+          </Button>
+        )}
         {!a && !busy && (
           <Button type="button" variant="outline" size="sm" onClick={onAnalyze}>
             {failed ? c.retry : c.analyze}
