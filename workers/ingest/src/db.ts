@@ -57,6 +57,18 @@ export interface IngestDb {
   runMaintenance(): Promise<unknown>;
   /** Exact count of public jobs matching PostgREST `filters` (e.g. `eligibility_type=eq.worldwide`). */
   countPublicJobs(filters?: string): Promise<number>;
+  /** Up to `max` ISO-2 countries of onboarded users, most users first. */
+  userCountries(max: number): Promise<string[]>;
+}
+
+/** Country codes → distinct codes, most frequent first (ties: alphabetical), at most `max`. */
+export function topCountries(codes: Array<string | null>, max: number): string[] {
+  const counts = new Map<string, number>();
+  for (const c of codes) if (c && /^[A-Z]{2}$/.test(c)) counts.set(c, (counts.get(c) ?? 0) + 1);
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, max)
+    .map(([c]) => c);
 }
 
 export function createDb(cfg: { url: string; serviceRoleKey: string; fetch?: typeof fetch }): IngestDb {
@@ -127,6 +139,11 @@ export function createDb(cfg: { url: string; serviceRoleKey: string; fetch?: typ
     async runMaintenance() {
       const res = await call('rpc/run_maintenance', { method: 'POST', body: '{}' });
       return res.json();
+    },
+
+    async userCountries(max) {
+      const res = await call('profiles?select=country_code&onboarded_at=not.is.null&limit=5000');
+      return topCountries(((await res.json()) as Array<{ country_code: string | null }>).map((r) => r.country_code), max);
     },
 
     async countPublicJobs(filters = '') {

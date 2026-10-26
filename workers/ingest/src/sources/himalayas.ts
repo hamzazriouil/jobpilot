@@ -4,12 +4,41 @@ import { z } from 'zod';
 import { cleanLine, isoDate, maxSeniority, normalizeTags, seniorityFromTitle, yearlyUsd } from '../normalize';
 import type { SourceAdapter, SourceContext, SourcePage } from './types';
 
-// Himalayas Remote Jobs API (docs/10-SOURCES.md §Himalayas). Browse endpoint, newest first,
-// 20 jobs per request, cursor pagination. Terms: credit Himalayas with a visible link, every Apply
+// Himalayas Remote Jobs API (docs/10-SOURCES.md §Himalayas). Read as several streams: the browse
+// feed (newest first, cursor pagination) plus searches (`/jobs/api/search`, page pagination, most
+// recently active first) for jobs open worldwide and for jobs open to each country our users live
+// in. The newest feed alone is mostly US-only jobs, while the searches reach the much larger pool a
+// user outside the US can apply to. 20 jobs per request either way. Terms: credit Himalayas with a visible link, every Apply
 // action uses `applicationLink` unchanged, show jobs only on our own site, remove expired jobs.
 
 export const HIMALAYAS_API = 'https://himalayas.app/jobs/api';
 export const HIMALAYAS_PAGE_SIZE = 20;
+/** Search terms per stream: dev and AI roles almost always say one of these. */
+export const HIMALAYAS_SEARCH_TERMS = ['engineer', 'developer'] as const;
+
+export interface HimalayasStream {
+  id: string;
+  /** null = the browse feed; otherwise the search query string (without page). */
+  search: string | null;
+}
+
+/** Feed first, then worldwide searches, then searches limited to each country (worldwide jobs excluded: covered above). */
+export function himalayasStreams(countries: string[] = []): HimalayasStream[] {
+  const streams: HimalayasStream[] = [{ id: 'feed', search: null }];
+  for (const q of HIMALAYAS_SEARCH_TERMS) streams.push({ id: `worldwide:${q}`, search: `worldwide=true&sort=recent&q=${q}` });
+  for (const c of countries) {
+    for (const q of HIMALAYAS_SEARCH_TERMS) {
+      streams.push({ id: `${c}:${q}`, search: `country=${encodeURIComponent(c)}&exclude_worldwide=true&sort=recent&q=${q}` });
+    }
+  }
+  return streams;
+}
+
+/** Requests per stream within `maxPages`: an even share (at least 1), the remainder to the feed. */
+export function pagesPerStream(maxPages: number, streams: number): { feed: number; search: number } {
+  const search = Math.max(1, Math.floor(maxPages / streams));
+  return { feed: Math.max(1, maxPages - search * (streams - 1)), search };
+}
 
 const RawJob = z.object({
   title: z.string(),
@@ -90,15 +119,26 @@ export const himalayas: SourceAdapter = {
   minIntervalMs: 1_000, // 60 req/min with a key; the shared public allowance is lower
   async *pages(ctx: SourceContext): AsyncGenerator<SourcePage> {
     const headers: Record<string, string> = ctx.apiKey ? { authorization: `Bearer ${ctx.apiKey}` } : {};
-    let cursor: string | null = null;
-    for (let page = 0; page < ctx.maxPages; page++) {
-      const url = `${HIMALAYAS_API}?limit=${HIMALAYAS_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-      const { items, nextCursor } = parseHimalayasPage(await ctx.getJson(url, headers));
-      const jobs = items.map(normalizeHimalayasJob);
-      const valid = jobs.filter((j): j is JobInput => j !== null);
-      yield { jobs: valid, fetched: items.length, invalid: jobs.length - valid.length };
-      if (!nextCursor || items.length === 0) return;
-      cursor = nextCursor;
+    const streams = himalayasStreams(ctx.countries);
+    const share = pagesPerStream(ctx.maxPages, streams.length);
+    let budget = ctx.maxPages;
+    for (const stream of streams) {
+      let cursor: string | null = null;
+      for (let page = 1; page <= (stream.search ? share.search : share.feed); page++) {
+        if (budget <= 0) return;
+        if (page > 1 && ctx.isCaughtUp?.(stream.id)) break;
+        const url = stream.search
+          ? `${HIMALAYAS_API}/search?${stream.search}&page=${page}`
+          : `${HIMALAYAS_API}?limit=${HIMALAYAS_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+        budget--;
+        const { items, nextCursor } = parseHimalayasPage(await ctx.getJson(url, headers));
+        const jobs = items.map(normalizeHimalayasJob);
+        const valid = jobs.filter((j): j is JobInput => j !== null);
+        yield { jobs: valid, fetched: items.length, invalid: jobs.length - valid.length, stream: stream.id };
+        // Search has no cursor: a short page is the last one.
+        if (items.length === 0 || (stream.search ? items.length < HIMALAYAS_PAGE_SIZE : !nextCursor)) break;
+        cursor = nextCursor;
+      }
     }
   },
 };

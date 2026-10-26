@@ -4,6 +4,7 @@ import {
   DEFAULT_LLM_FALLBACK_CAP,
   DEFAULT_MAX_PAGES,
   intVar,
+  SEARCH_COUNTRIES,
   userAgent,
   type Env,
   type ExecutionContextLike,
@@ -34,6 +35,10 @@ export async function scheduledIngest(env: Env): Promise<void> {
   const adapters = enabled.map((s) => getAdapter(s.id)).filter((a): a is SourceAdapter => a !== null);
   const skipped = enabled.filter((s) => !getAdapter(s.id)).map((s) => s.id);
   if (skipped.length) consoleLog('no_adapter', { sources: skipped });
+  const countries = await db.userCountries(SEARCH_COUNTRIES).catch((err: unknown) => {
+    consoleLog('user_countries_error', { error: errorText(err) });
+    return [];
+  });
 
   const stats = await runIngest(
     adapters,
@@ -45,6 +50,7 @@ export async function scheduledIngest(env: Env): Promise<void> {
       userAgent: userAgent(env.APP_URL),
       log: consoleLog,
       apiKeys: { himalayas: env.HIMALAYAS_API_KEY },
+      countries,
     },
     {
       dryRun: false,

@@ -24,11 +24,12 @@
   //   GOOGLE_GENERATIVE_AI_API_KEY  optional: LLM fallback for 'unclear' locations (skipped if unset)
   //   HIMALAYAS_API_KEY          optional: free key from himalayas.app/api-keys (higher rate limit)
   // Optional vars: INGEST_MAX_PAGES (default 10 per source per run), LLM_FALLBACK_CAP (default 10 per run).
-  // Workers Free allows 50 subrequests per invocation: 3 pages per source and 3 LLM location
-  // checks keep a run (sources + dedupe + upserts + embedding batches) well under that.
+  // Workers Free allows 50 subrequests per invocation. Worst case per run: Himalayas 6 pages × 4
+  // (fetch, dedupe, embed, upsert) + Remote OK 4 + 3 LLM location checks + ~4 source/profile reads
+  // = 35. The 6 Himalayas pages cover its streams (feed, worldwide and user-country searches).
   "vars": {
     "APP_URL": "https://jobpilot-web.buildli731.workers.dev",
-    "INGEST_MAX_PAGES": "3",
+    "INGEST_MAX_PAGES": "6",
     "LLM_FALLBACK_CAP": "3"
   }
 }

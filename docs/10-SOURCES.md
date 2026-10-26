@@ -25,7 +25,14 @@
 
 ## Himalayas — enabled
 
-- **API:** `GET https://himalayas.app/jobs/api?limit=20&cursor=…` (newest first, 20 jobs per request, cursor pagination). Docs: <https://himalayas.app/api>.
+- **API:** `GET https://himalayas.app/jobs/api?limit=20&cursor=…` (newest first, 20 jobs per request, cursor pagination) and `GET https://himalayas.app/jobs/api/search?…&page=N` (filters, 20 per page, no cursor). Docs: <https://himalayas.app/api>.
+- **Streams (added 2026-10-26):** the newest feed alone is mostly US-only jobs. On 2026-10-26, 0 of the 26 jobs it added were open to a user in Morocco, while the search API listed ~1,100 worldwide "engineer" jobs. Each run reads, in order:
+  1. `feed`: the browse feed;
+  2. `worldwide:engineer`, `worldwide:developer`: `worldwide=true&sort=recent&q=…`;
+  3. `<CC>:engineer`, `<CC>:developer` for the top `SEARCH_COUNTRIES` (2) countries of onboarded users: `country=CC&exclude_worldwide=true&sort=recent&q=…`.
+
+  The run's page budget is split evenly, with the remainder going to the feed. The pipeline tracks "caught up" per stream, so a known feed doesn't stop the searches. The first backfill (`--pages 60`) added 199 jobs: 158 worldwide and 41 open to Morocco.
+- **Known gap:** the API also has `timezoneRestrictions` (UTC offsets), which we don't store. A "worldwide" job limited to, say, UTC+3:30 shows as worldwide. The full analysis still reads the description.
 - **Terms:** "Terms and Conditions for API Users" in <https://himalayas.app/terms>. In short:
   - Personal and commercial use are both allowed, including on your own job board. No need to ask first.
   - Clearly name Himalayas as the source, with a visible link to the Himalayas job or to himalayas.app.

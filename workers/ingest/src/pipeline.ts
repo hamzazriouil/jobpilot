@@ -26,6 +26,8 @@ export interface PipelineDeps {
   log: LogFn;
   /** Per-source API keys (e.g. himalayas). */
   apiKeys?: Record<string, string | undefined>;
+  /** ISO-2 countries our users live in, most users first (for sources that search by country). */
+  countries?: string[];
   sleep?: (ms: number) => Promise<void>;
   now?: () => Date;
 }
@@ -169,6 +171,8 @@ export async function runSource(
   const stopAfter = opts.stopAfterKnownPages ?? 2;
   const seen = new Set<string>();
   let knownPagesInARow = 0;
+  const caughtUp = new Set<string>();
+  let stream: string | undefined;
 
   if (!opts.dryRun && (!deps.db || !deps.embed)) {
     stats.ok = false;
@@ -179,8 +183,20 @@ export async function runSource(
   const getJson = createGetJson({ userAgent: deps.userAgent, fetch: deps.fetch, minIntervalMs: adapter.minIntervalMs, sleep: deps.sleep });
 
   try {
-    for await (const page of adapter.pages({ getJson, maxPages: opts.maxPages, apiKey: deps.apiKeys?.[adapter.id], log })) {
+    const pages = adapter.pages({
+      getJson,
+      maxPages: opts.maxPages,
+      apiKey: deps.apiKeys?.[adapter.id],
+      log,
+      countries: deps.countries,
+      isCaughtUp: (s) => caughtUp.has(s),
+    });
+    for await (const page of pages) {
       stats.pages++;
+      if (page.stream !== stream) {
+        stream = page.stream;
+        knownPagesInARow = 0;
+      }
       stats.fetched += page.fetched;
       stats.invalid += page.invalid;
 
@@ -226,8 +242,9 @@ export async function runSource(
       });
       if (stats.fresh >= limit) break;
       if (knownPagesInARow >= stopAfter) {
-        log('caught_up', { source: adapter.id, page: stats.pages });
-        break;
+        log('caught_up', { source: adapter.id, page: stats.pages, stream: page.stream });
+        if (page.stream === undefined) break;
+        caughtUp.add(page.stream);
       }
     }
   } catch (err) {

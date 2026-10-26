@@ -79,7 +79,7 @@ beforeEach(() => llmMock.classifyLocationLLM.mockReset());
 describe('runSource', () => {
   it('writes only new tech jobs, with hash, eligibility and a 768-d vector', async () => {
     const w = world();
-    const stats = await runSource(himalayas, deps(w), { dryRun: false, maxPages: 3, llmCap: 0 });
+    const stats = await runSource(himalayas, deps(w), { dryRun: false, maxPages: 1, llmCap: 0 });
     expect(stats).toMatchObject({ ok: true, pages: 1, fetched: 7, tech: 3, fresh: 3, upserted: 3, embedded: 3 });
     expect(w.upserts.map((r) => r.title).sort()).toEqual(['Full Stack Engineer', 'Talent Database - Sr. AI Engineer - India Only', '🌎Applied Scientist, Remote- Contract']);
     const row = w.upserts.find((r) => r.title === 'Full Stack Engineer')!;
@@ -91,6 +91,14 @@ describe('runSource', () => {
     expect(src.headers['user-agent']).toBe('ApplyVerdictBot/0.1 (+https://app.test)');
     const up = w.requests.find((r) => r.method === 'POST' && r.url.includes('on_conflict=source_id,source_job_id'))!;
     expect(up.headers.prefer).toBe('resolution=merge-duplicates,return=minimal');
+  });
+
+  it('a caught-up stream ends only that stream, not the source', async () => {
+    const w = world();
+    // The fake serves the same page everywhere: the feed adds 3 jobs, both searches find only known ones.
+    const stats = await runSource(himalayas, deps(w), { dryRun: false, maxPages: 3, llmCap: 0, stopAfterKnownPages: 1 });
+    expect(stats).toMatchObject({ ok: true, pages: 3, fresh: 3, upserted: 3 });
+    expect(w.requests.filter((r) => r.url.includes('/jobs/api/search?')).map((r) => r.url)).toHaveLength(2);
   });
 
   it('skips jobs whose hash already exists among public jobs', async () => {

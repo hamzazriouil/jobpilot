@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { silentLog } from '../src/log';
-import { himalayas, normalizeHimalayasJob, parseHimalayasPage } from '../src/sources/himalayas';
+import { himalayas, himalayasStreams, normalizeHimalayasJob, pagesPerStream, parseHimalayasPage } from '../src/sources/himalayas';
 import { normalizeRemoteOkJob, remoteok } from '../src/sources/remoteok';
 import type { SourcePage } from '../src/sources';
 
@@ -61,19 +61,55 @@ describe('himalayas adapter', () => {
     expect(normalizeHimalayasJob({ ...(himalayasPage.jobs[0] as object), applicationLink: 'not a url' })).toBeNull();
   });
 
-  it('pages: follows nextCursor, sends the API key, stops at maxPages', async () => {
+  it('pages: feed by cursor, then the worldwide searches, sends the API key', async () => {
     const getJson = vi.fn(async (url: string, _headers?: Record<string, string>) => {
-      return { ...himalayasPage, nextCursor: url.includes('cursor=') ? null : 'abc' };
+      return { ...himalayasPage, nextCursor: url.includes('cursor=') || url.includes('/search?') ? null : 'abc' };
     });
     const pages = await collect(himalayas.pages({ getJson, maxPages: 5, apiKey: 'k', log: silentLog }));
-    expect(pages).toHaveLength(2);
-    expect(getJson.mock.calls[0]![0]).toBe('https://himalayas.app/jobs/api?limit=20');
-    expect(getJson.mock.calls[1]![0]).toBe('https://himalayas.app/jobs/api?limit=20&cursor=abc');
+    expect(getJson.mock.calls.map((c) => c[0])).toEqual([
+      'https://himalayas.app/jobs/api?limit=20',
+      'https://himalayas.app/jobs/api?limit=20&cursor=abc',
+      'https://himalayas.app/jobs/api/search?worldwide=true&sort=recent&q=engineer&page=1',
+      'https://himalayas.app/jobs/api/search?worldwide=true&sort=recent&q=developer&page=1',
+    ]);
     expect(getJson.mock.calls[0]![1]).toEqual({ authorization: 'Bearer k' });
+    expect(pages.map((p) => p.stream)).toEqual(['feed', 'feed', 'worldwide:engineer', 'worldwide:developer']);
     expect(pages[0]).toMatchObject({ fetched: 7, invalid: 0 });
 
     const one = await collect(himalayas.pages({ getJson: async () => ({ ...himalayasPage }), maxPages: 1, log: silentLog }));
     expect(one).toHaveLength(1);
+  });
+
+  it('pages: searches each user country, never more than maxPages requests', async () => {
+    const getJson = vi.fn(async () => ({ ...himalayasPage, nextCursor: null }));
+    await collect(himalayas.pages({ getJson, maxPages: 5, countries: ['MA'], log: silentLog }));
+    expect(getJson.mock.calls.map((c) => (c as unknown[])[0])).toEqual([
+      'https://himalayas.app/jobs/api?limit=20',
+      'https://himalayas.app/jobs/api/search?worldwide=true&sort=recent&q=engineer&page=1',
+      'https://himalayas.app/jobs/api/search?worldwide=true&sort=recent&q=developer&page=1',
+      'https://himalayas.app/jobs/api/search?country=MA&exclude_worldwide=true&sort=recent&q=engineer&page=1',
+      'https://himalayas.app/jobs/api/search?country=MA&exclude_worldwide=true&sort=recent&q=developer&page=1',
+    ]);
+    const capped = vi.fn(async () => ({ ...himalayasPage, nextCursor: null }));
+    await collect(himalayas.pages({ getJson: capped, maxPages: 3, countries: ['MA', 'FR'], log: silentLog }));
+    expect(capped).toHaveBeenCalledTimes(3);
+  });
+
+  it('pages: a full search page leads to the next page unless that stream caught up', async () => {
+    const full = { jobs: Array.from({ length: 20 }, (_, i) => himalayasPage.jobs[i % himalayasPage.jobs.length]) };
+    const getJson = vi.fn(async () => full);
+    await collect(himalayas.pages({ getJson, maxPages: 6, isCaughtUp: (s) => s === 'worldwide:engineer', log: silentLog }));
+    const urls = getJson.mock.calls.map((c) => (c as unknown[])[0] as string);
+    expect(urls.filter((u) => u.includes('q=engineer'))).toEqual(['https://himalayas.app/jobs/api/search?worldwide=true&sort=recent&q=engineer&page=1']);
+    expect(urls.filter((u) => u.includes('q=developer'))).toHaveLength(2);
+  });
+
+  it('streams and page shares', () => {
+    expect(himalayasStreams().map((s) => s.id)).toEqual(['feed', 'worldwide:engineer', 'worldwide:developer']);
+    expect(himalayasStreams(['MA']).map((s) => s.id)).toEqual(['feed', 'worldwide:engineer', 'worldwide:developer', 'MA:engineer', 'MA:developer']);
+    expect(pagesPerStream(6, 5)).toEqual({ feed: 2, search: 1 });
+    expect(pagesPerStream(60, 5)).toEqual({ feed: 12, search: 12 });
+    expect(pagesPerStream(2, 5)).toEqual({ feed: 1, search: 1 });
   });
 });
 

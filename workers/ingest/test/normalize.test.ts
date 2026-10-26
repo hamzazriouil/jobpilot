@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { topCountries } from '../src/db';
 import { createGetJson, SourceHttpError } from '../src/http';
 import { verifyLocationAnswer } from '../src/location-llm';
 import { cleanLine, fixMojibake, maxSeniority, seniorityFromTitle, yearlyUsd } from '../src/normalize';
@@ -95,5 +96,13 @@ describe('verifyLocationAnswer (LLM fallback guard)', () => {
   it('regions without a valid code → unclear; UK → GB', () => {
     expect(verifyLocationAnswer({ eligibilityType: 'regions', allowedRegions: ['Mars'], quote: 'based in Canada' }, posting).eligibilityType).toBe('unclear');
     expect(verifyLocationAnswer({ eligibilityType: 'regions', allowedRegions: ['UK'], quote: 'based in Canada' }, posting).allowedRegions).toEqual(['GB']);
+  });
+});
+
+describe('topCountries', () => {
+  it('ranks countries by users, ignores blanks and bad codes, caps the list', () => {
+    expect(topCountries(['MA', 'FR', 'MA', null, 'xx', 'DZ', 'FR', 'MA'], 2)).toEqual(['MA', 'FR']);
+    expect(topCountries(['TN', 'DZ'], 5)).toEqual(['DZ', 'TN']);
+    expect(topCountries([], 2)).toEqual([]);
   });
 });

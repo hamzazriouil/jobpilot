@@ -13,6 +13,10 @@ export interface SourceContext {
   maxPages: number;
   apiKey?: string;
   log: LogFn;
+  /** ISO-2 countries our users live in, most users first (sources that can search by country use them). */
+  countries?: string[];
+  /** True once the pipeline has seen this stream catch up (pages of known jobs only): skip its next pages. */
+  isCaughtUp?: (stream: string) => boolean;
 }
 
 export interface SourcePage {
@@ -21,6 +25,11 @@ export interface SourcePage {
   fetched: number;
   /** Items dropped because they failed validation. */
   invalid: number;
+  /**
+   * For sources read as several listings (Himalayas: newest feed + searches). The pipeline tracks
+   * "caught up" per stream; without a stream, catching up ends the whole source.
+   */
+  stream?: string;
 }
 
 export interface SourceAdapter {

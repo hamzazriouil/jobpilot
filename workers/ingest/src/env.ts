@@ -19,6 +19,8 @@ export interface Env {
 /** Defaults sized for one cron run (Workers subrequest and CPU limits): see docs/10-SOURCES.md. */
 export const DEFAULT_MAX_PAGES = 10;
 export const DEFAULT_LLM_FALLBACK_CAP = 10;
+/** Countries (most users first) that sources with a country search (Himalayas) look up each run. */
+export const SEARCH_COUNTRIES = 2;
 
 export function intVar(raw: string | undefined, fallback: number): number {
   const n = Number.parseInt(raw ?? '', 10);

@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { consoleSink, type ProviderConfig } from '@jobpilot/core/llm';
 import { createDb, type IngestDb } from './db';
 import { loadDevVars } from './dev-vars';
-import { DEFAULT_LLM_FALLBACK_CAP, DEFAULT_MAX_PAGES, intVar, userAgent } from './env';
+import { DEFAULT_LLM_FALLBACK_CAP, DEFAULT_MAX_PAGES, intVar, SEARCH_COUNTRIES, userAgent } from './env';
 import { consoleLog } from './log';
 import { runIngest, type SourceStats } from './pipeline';
 import { ADAPTERS, getAdapter, type SourceAdapter } from './sources';
@@ -148,6 +148,7 @@ async function main(): Promise<void> {
       userAgent: userAgent(vars.APP_URL?.startsWith('https://') ? vars.APP_URL : APP_URL_DEFAULT),
       log: consoleLog,
       apiKeys: { himalayas: vars.HIMALAYAS_API_KEY },
+      countries: db ? await db.userCountries(SEARCH_COUNTRIES) : [],
     },
     { dryRun: args.dryRun, maxPages: args.pages, limit: args.limit, llmCap: intVar(String(args.llmCap), DEFAULT_LLM_FALLBACK_CAP) },
   );
