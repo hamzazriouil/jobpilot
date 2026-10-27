@@ -1,6 +1,6 @@
 # Job sources
 
-> 2026-10-25 · W13 Ingest. Extends [05-ARCHITECTURE §5.4](05-ARCHITECTURE.md) and [09-PHASE1-CONTRACT §5](09-PHASE1-CONTRACT.md).
+> 2026-10-25 · W13 Ingest; Jobicy and the other candidates 2026-10-27 (W18). Extends [05-ARCHITECTURE §5.4](05-ARCHITECTURE.md) and [09-PHASE1-CONTRACT §5](09-PHASE1-CONTRACT.md).
 > Code: `workers/ingest/src/sources/*`. Each source's terms were read on the date above. Read them again before changing anything here.
 
 ## Summary
@@ -9,9 +9,13 @@
 |---|---|---|
 | **Himalayas** | **yes** | Commercial use is allowed without asking. Location limits come as structured country lists. Large volume. |
 | **Remote OK** | **yes** | Only asks for a followed link back and the name. Good share of dev jobs. Locations are often empty. |
+| **Jobicy** | **yes** (2026-10-27) | Terms explicitly allow commercial use and aggregators. Credit with a clickable link; apply links go to the Jobicy page; poll at most hourly. Mostly US jobs, but every job has a location field. |
 | Remotive | no | Its terms forbid showing its jobs to collect signups. Our feed is behind login. Also only ~10 dev jobs in the free feed. |
-| Arbeitnow | no | Mostly on-site jobs in Germany (12 of 300 were remote). No written terms beyond "don't abuse". |
-| We Work Remotely | no | Could not read its terms (the site returned 403 to our fetch). Not enabled without reading them. |
+| Arbeitnow | no | Mostly on-site jobs in Germany (22 of 300 remote). Its site licence forbids commercial use and public display, which contradicts the API clause: unclear, so no. |
+| We Work Remotely | no | API terms (read 2026-10-27) ban "a job advertising or job search service" and storing their data. |
+| Working Nomads | no | No API terms; site terms ban commercial use and building a competing product. |
+| 4dayweek.io | no (ask first) | Free API, but terms forbid using it to "populate a competing job board". Needs written permission. |
+| Landing.jobs, Remote Rocketship | no | Landing.jobs forbids republishing; Remote Rocketship's API is a paid personal subscription. |
 | HN "Who is hiring" | no | Free-form comments: no title, company or location fields. Each post would need an LLM to parse. Revisit later. |
 
 ## Rules for every source (all of them, enabled or not)
@@ -80,16 +84,30 @@
 - **Why not:** our feed requires an account, so showing Remotive jobs there would break that last rule. The free feed also had only 10 software-dev jobs on 2026-10-25. Possible later: show Remotive jobs on a public page with no login, or buy their paid API.
 - Its `candidate_required_location` strings ("USA, Canada, USA timezones", "Europe, USA, Canada, APAC") are in the location-rule tests.
 
+## Jobicy — enabled
+
+- **API:** `GET https://jobicy.com/api/jobs?count=50&industry=<slug>` (JSON, newest first, cursor pagination over a 7-day window, no key). Docs: <https://jobicy.com/jobs-rss-feed> (also <https://jobi.cy/apidocs>).
+- **Terms (read 2026-10-27, on the docs page):** the free API "can be used in commercial projects, subscription-based SaaS platforms", "No separate commercial agreement or approval is required", and aggregators are explicitly welcome. Data may be stored and cached. Conditions:
+  - credit Jobicy as the source with a clickable link (`sources.attribution` = "Via Jobicy (https://jobicy.com)", shown on every card);
+  - apply links must go to the original Jobicy page: we store the Jobicy listing `url` and never the ATS link;
+  - don't present the listings as our own;
+  - poll at most once per hour (our cron runs every 6 hours) and handle 429 with a deferred retry (our HTTP helper retries once with Retry-After);
+  - keep listings current: the daily maintenance cron calls the free batch status endpoint `/api/jobs/status?ids=…` (100 ids per call) and expires a job only on an explicit `closed` (`unknown` is left alone, as the docs say). Code: `workers/ingest/src/maintenance.ts`.
+- **What we read:** industries `engineering` and `data-science`, one page of 50 each per run (2 pages × 4 subrequests). About 75% pass our tech-role filter.
+- **Location:** `jobGeo` ("Anywhere", "EMEA, LATAM, Canada, USA", "Czechia") goes into `location_raw` and the shared location rules classify it (they read both countries and regions). In a 100-job sample: 5 worldwide, 64 region-limited (mostly USA), 4 unclear.
+- **Salary:** only USD ranges are kept (yearly, or converted from the stated period).
+
 ## Arbeitnow — not enabled
 
 - **API:** `GET https://www.arbeitnow.com/api/job-board-api` (300 jobs per page). Info: <https://www.arbeitnow.com/blog/job-board-api>.
 - **Terms:** the API says "free public API for jobs, please do not abuse", asks for a link back, and points to the site's general terms. No rate limit is published.
-- **Why not:** the jobs are mostly on-site in Germany, and many are in German. Only 12 of 300 had `remote: true`. Low value for a remote-job feed.
+- **Why not:** the jobs are mostly on-site in Germany, and many are in German. Only 12 of 300 had `remote: true` (22 of 300 on 2026-10-27). Low value for a remote-job feed.
+- **Terms (re-read 2026-10-27):** <https://www.arbeitnow.com/en/terms> section 11 asks API users for a link back, but section 2 (licence) forbids using the materials "for any commercial purpose, or for any public display". Contradictory, so treated as not allowed.
 
 ## We Work Remotely — not enabled
 
 - **Feed:** `https://weworkremotely.com/categories/remote-programming-jobs.rss`.
-- **Why not:** <https://weworkremotely.com/terms-of-service> returned 403 to our fetch, so we could not read the terms. The rule is "read the terms first". Read them in a browser before adding an adapter.
+- **Terms (read in a browser 2026-10-27):** the RSS page asks only for attribution, but the API terms <https://weworkremotely.com/api-terms-and-guidelines> forbid building "a job advertising or job search service" and say storing their data is prohibited. ApplyVerdict is a job search service that stores jobs, so **not allowed** without written permission (hello@weworkremotely.com).
 
 ## HN "Who is hiring" — not enabled
 

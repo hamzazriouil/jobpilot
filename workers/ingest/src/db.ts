@@ -59,6 +59,10 @@ export interface IngestDb {
   countPublicJobs(filters?: string): Promise<number>;
   /** Up to `max` ISO-2 countries of onboarded users, most users first. */
   userCountries(max: number): Promise<string[]>;
+  /** Public jobs of a source not marked expired yet, oldest first (for status syncs). */
+  liveSourceJobs(sourceId: string, max: number): Promise<Array<{ id: string; source_job_id: string }>>;
+  /** Marks public jobs expired now (they leave matching and the feed). Returns how many ids were sent. */
+  expireJobs(ids: string[]): Promise<number>;
 }
 
 /** Country codes → distinct codes, most frequent first (ties: alphabetical), at most `max`. */
@@ -144,6 +148,24 @@ export function createDb(cfg: { url: string; serviceRoleKey: string; fetch?: typ
     async userCountries(max) {
       const res = await call('profiles?select=country_code&onboarded_at=not.is.null&limit=5000');
       return topCountries(((await res.json()) as Array<{ country_code: string | null }>).map((r) => r.country_code), max);
+    },
+
+    async liveSourceJobs(sourceId, max) {
+      const res = await call(
+        `jobs?select=id,source_job_id&owner_id=is.null&source_id=eq.${encodeURIComponent(sourceId)}&expires_at=is.null&source_job_id=not.is.null&order=ingested_at.asc&limit=${max}`,
+      );
+      return (await res.json()) as Array<{ id: string; source_job_id: string }>;
+    },
+
+    async expireJobs(ids) {
+      if (!ids.length) return 0;
+      // UUIDs need no quoting inside in.(…).
+      await call(`jobs?owner_id=is.null&id=in.(${ids.join(',')})`, {
+        method: 'PATCH',
+        prefer: 'return=minimal',
+        body: JSON.stringify({ expires_at: new Date().toISOString() }),
+      });
+      return ids.length;
     },
 
     async countPublicJobs(filters = '') {

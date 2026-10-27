@@ -1,4 +1,5 @@
 import { himalayas } from './himalayas';
+import { jobicy } from './jobicy';
 import { remoteok } from './remoteok';
 import type { SourceAdapter } from './types';
 
@@ -8,6 +9,7 @@ import type { SourceAdapter } from './types';
 
 export const ADAPTERS: Readonly<Record<string, SourceAdapter>> = Object.freeze({
   [himalayas.id]: himalayas,
+  [jobicy.id]: jobicy,
   [remoteok.id]: remoteok,
 });
 

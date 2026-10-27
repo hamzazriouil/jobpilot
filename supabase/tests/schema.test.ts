@@ -15,17 +15,17 @@ describe('migration + seed', () => {
       'select id, enabled from public.sources order by id',
     );
     expect(rows.map((r) => r.id).sort()).toEqual([
-      'arbeitnow', 'himalayas', 'hn', 'remoteok', 'remotive', 'user_paste', 'wwr',
+      'arbeitnow', 'himalayas', 'hn', 'jobicy', 'remoteok', 'remotive', 'user_paste', 'wwr',
     ]);
     // Feed sources are enabled only after their terms were read (docs/10-SOURCES.md).
-    expect(rows.filter((r) => r.enabled).map((r) => r.id)).toEqual(['himalayas', 'remoteok', 'user_paste']);
+    expect(rows.filter((r) => r.enabled).map((r) => r.id)).toEqual(['himalayas', 'jobicy', 'remoteok', 'user_paste']);
   });
 
   it('seed is idempotent', async () => {
     const { SEED } = await import('./helpers');
     await t.db.exec(SEED);
     const { rows } = await t.db.query<{ n: number }>('select count(*)::int n from public.sources');
-    expect(rows[0]!.n).toBe(7);
+    expect(rows[0]!.n).toBe(8);
   });
 
   it('enables RLS on every public table', async () => {

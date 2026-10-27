@@ -1,0 +1,80 @@
+{
+ "apiVersion": "2.2.19",
+ "friendlyNotice": "Thanks for using Jobicy API!",
+ "jobCount": 4,
+ "nextCursor": null,
+ "hasMore": false,
+ "jobs": [
+  {
+   "id": 154082,
+   "url": "https://jobicy.com/jobs/154082-senior-software-engineer-backend-money-movement",
+   "jobSlug": "154082-senior-software-engineer-backend-money-movement",
+   "jobTitle": "Senior Software Engineer, Backend (Money Movement)",
+   "companyName": "Phantom",
+   "companyLogo": "https://jobicy.com/data/server-nyc0409/galaxy/mercury/2025/08/3d0a3a49-221.png",
+   "jobIndustry": [
+    "Software Engineering"
+   ],
+   "jobType": [
+    "Full-Time"
+   ],
+   "jobGeo": "Anywhere",
+   "jobLevel": "Senior",
+   "jobExcerpt": "Phantom is on a mission to connect the world to the freedom of open markets. Tens of millions of people all over the world use Phantom to access global markets that never close, including perpetuals, prediction markets, tokenized assets, stablecoins and memes. Phantom users are able to discover the markets that matter and the cultural&hellip;",
+   "jobDescription": "<p><a href=\"https://phantom.com\" rel=\"nofollow ugc noopener\" target=\"_blank\">Phantom</a> is on a mission to connect the world to the freedom of open markets. Tens of millions of people all over the world use <a href=\"https://jobicy.com/company/phantom\" target=\"_blank\" rel=\"noopener\">Phantom</a> to access global markets that never close, including perpetuals, prediction markets, tokenized assets, stablecoins and memes. Phantom users are able to discover the markets that matter and the cultural moments that shape them, building conviction through real-time data and the verified performance of to",
+   "pubDate": "2026-10-26T04:15:22+00:00"
+  },
+  {
+   "id": 157235,
+   "url": "https://jobicy.com/jobs/157235-manager-software-engineering-developer-experience",
+   "jobSlug": "157235-manager-software-engineering-developer-experience",
+   "jobTitle": "Manager, Software Engineering - Developer Experience",
+   "companyName": "ClickUp",
+   "companyLogo": "https://jobicy.com/data/server-nyc0409/galaxy/mercury/2025/06/cd5be0ef-221.jpg",
+   "jobIndustry": [
+    "Software Engineering"
+   ],
+   "jobType": [
+    "Full-Time"
+   ],
+   "jobGeo": "USA",
+   "jobLevel": "Director",
+   "jobExcerpt": "At ClickUp, we're building the future of work: the first truly converged AI workspace unifying tasks, docs, chat, calendar, and enterprise search, all supercharged by context-driven AI. We are an AI-native company. Every team member is expected to leverage AI daily, and we evaluate AI fluency as part of our hiring process. Join us and&hellip;",
+   "jobDescription": "<p>At <a href=\"https://jobicy.com/company/clickup\" target=\"_blank\" rel=\"noopener\">ClickUp</a>, we're building the future of work: the first truly converged AI workspace unifying tasks, docs, chat, calendar, and enterprise search, all supercharged by context-driven AI. We are an AI-native company. Every team member is expected to leverage AI daily, and we evaluate AI fluency as part of our hiring process. Join us and help redefine what's possible. </p>\n\n<h3>Role Overview</h3>\n<p>As the <strong>Engineering Manager - Developer Productivity</strong>, you will lead a high-impact team focused on imp",
+   "pubDate": "2026-10-26T16:38:50+00:00",
+   "salaryMin": 200000,
+   "salaryMax": 250000,
+   "salaryCurrency": "USD",
+   "salaryPeriod": "yearly"
+  },
+  {
+   "id": 157109,
+   "url": "https://jobicy.com/jobs/157109-senior-software-engineer-product",
+   "jobSlug": "157109-senior-software-engineer-product",
+   "jobTitle": "Senior Software Engineer, Product",
+   "companyName": "RevenueCat",
+   "companyLogo": "https://jobicy.com/data/server-nyc0409/galaxy/mercury/2021/09/e9b2999e3e7950f153097909d027dda2.jpg",
+   "jobIndustry": [
+    "Software Engineering"
+   ],
+   "jobType": [
+    "Full-Time"
+   ],
+   "jobGeo": "EMEA,  LATAM,  Canada,  USA",
+   "jobLevel": "Senior",
+   "jobExcerpt": "RevenueCat gives app businesses the infrastructure and tools to build, run, and improve their monetization. Since graduating from YC's S18 batch, we've grown into the default monetization platform for mobile. We're in 50%+ of newly shipped subscription apps, we process $16B+ in annual purchase volume, and we help everyone from a solo developer to the&hellip;",
+   "jobDescription": "<p><a href=\"https://jobicy.com/company/revenuecat\" target=\"_blank\" rel=\"noopener\">RevenueCat</a> gives app businesses the infrastructure and tools to build, run, and improve their monetization. Since graduating from YC's S18 batch, we've grown into the default monetization platform for mobile. </p>\n<p>We're in 50%+ of newly shipped subscription apps, we process $16B+ in annual purchase volume, and we help everyone from a solo developer to the OpenAI mobile team understand and grow their revenue.</p>\n<p>We're a remote-first team of 150+ people across 25+ countries, guided by values we actually ",
+   "pubDate": "2026-10-26T10:35:55+00:00",
+   "salaryMin": 230000,
+   "salaryMax": 230000,
+   "salaryCurrency": "USD",
+   "salaryPeriod": "yearly"
+  },
+  {
+   "id": 1,
+   "url": "not a url",
+   "jobTitle": "Broken"
+  }
+ ],
+ "success": true
+}

@@ -10,12 +10,16 @@ import {
   type ExecutionContextLike,
   type ScheduledControllerLike,
 } from './env';
+import { createGetJson } from './http';
 import { consoleLog, errorText } from './log';
+import { jobicyStatusSync } from './maintenance';
 import { runIngest } from './pipeline';
 import { getAdapter, type SourceAdapter } from './sources';
+import { jobicy } from './sources/jobicy';
 
 // jobpilot-ingest Worker (docs/05-ARCHITECTURE.md §5.4, docs/09-PHASE1-CONTRACT.md §5).
-// Crons only: "0 */6 * * *" ingests every enabled source, "0 6 * * *" runs DB maintenance.
+// Crons only: "0 */6 * * *" ingests every enabled source, "0 6 * * *" runs DB maintenance and the
+// source status syncs (src/maintenance.ts).
 // The fetch handler is a 404 on purpose: there is no public trigger.
 
 export const MAINTENANCE_CRON = '0 6 * * *';
@@ -70,6 +74,12 @@ export async function scheduledMaintenance(env: Env): Promise<void> {
   }
   const db = createDb({ url: env.SUPABASE_URL, serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY });
   consoleLog('maintenance_done', { result: await db.runMaintenance() });
+  const jobicyStatus = await jobicyStatusSync({
+    db,
+    getJson: createGetJson({ userAgent: userAgent(env.APP_URL), minIntervalMs: jobicy.minIntervalMs }),
+    log: consoleLog,
+  }).catch((err: unknown) => ({ error: errorText(err) }));
+  consoleLog('status_sync_done', { jobicy: jobicyStatus });
 }
 
 export default {

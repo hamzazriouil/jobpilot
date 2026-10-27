@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { silentLog } from '../src/log';
 import { himalayas, himalayasStreams, normalizeHimalayasJob, pagesPerStream, parseHimalayasPage } from '../src/sources/himalayas';
 import { normalizeRemoteOkJob, remoteok } from '../src/sources/remoteok';
+import { jobicy, jobicyLocation, JOBICY_INDUSTRIES, JOBICY_PAGES_PER_RUN, normalizeJobicyJob } from '../src/sources/jobicy';
+import { classifyLocationRules } from '@jobpilot/core/jobs';
 import type { SourcePage } from '../src/sources';
 
 // Trimmed real responses (2026-10-25), descriptions cut to 1,500 chars.
@@ -154,5 +156,52 @@ describe('remoteok adapter', () => {
     expect(tags).toContain('react');
     expect(tags).not.toContain('digital nomad');
     expect(tags).not.toContain('marketing');
+  });
+});
+
+describe('jobicy adapter', () => {
+  const page = fixture('jobicy.json') as { jobs: unknown[] };
+  const jobs = page.jobs.map(normalizeJobicyJob);
+
+  it('normalizes valid jobs and drops the broken one', () => {
+    expect(jobs.slice(0, 3).every((j) => j !== null)).toBe(true);
+    expect(jobs[3]).toBeNull();
+  });
+
+  it('keeps the Jobicy listing url (link-back and apply link) and leaves eligibility to the rules', () => {
+    expect(jobs[0]).toMatchObject({
+      sourceId: 'jobicy',
+      sourceJobId: '154082',
+      url: expect.stringMatching(/^https:\/\/jobicy\.com\/jobs\/154082-/),
+      locationRaw: 'Anywhere',
+      eligibilityType: null,
+      seniority: 'senior',
+    });
+    expect(jobs[2]!.locationRaw).toBe('EMEA, LATAM, Canada, USA');
+  });
+
+  it('maps levels and converts USD salaries only', () => {
+    expect(jobs[1]).toMatchObject({ seniority: 'lead', salaryMinUsd: 200_000 });
+    expect(jobs[0]).toMatchObject({ salaryMinUsd: null, salaryMaxUsd: null });
+  });
+
+  it('jobicyLocation tidies the separators', () => {
+    expect(jobicyLocation('Canada,  USA')).toBe('Canada, USA');
+    expect(jobicyLocation('')).toBeNull();
+  });
+
+  it('reads one page per industry, at most JOBICY_PAGES_PER_RUN, newest first', async () => {
+    const getJson = vi.fn(async (_url: string) => page);
+    const pages = await collect(jobicy.pages({ getJson, maxPages: 6, log: silentLog }));
+    expect(pages.map((p) => p.stream)).toEqual([...JOBICY_INDUSTRIES]);
+    expect(getJson).toHaveBeenCalledTimes(JOBICY_PAGES_PER_RUN);
+    expect(getJson.mock.calls[0]![0]).toBe('https://jobicy.com/api/jobs?count=50&industry=engineering');
+    expect(pages[0]).toMatchObject({ fetched: 4, invalid: 1 });
+    expect(await collect(jobicy.pages({ getJson, maxPages: 1, log: silentLog }))).toHaveLength(1);
+  });
+
+  it('the pipeline rules read Jobicy locations', () => {
+    expect(classifyLocationRules({ locationRaw: jobs[0]!.locationRaw, description: '' }).eligibilityType).toBe('worldwide');
+    expect(classifyLocationRules({ locationRaw: jobs[2]!.locationRaw, description: '' }).allowedRegions).toEqual(['EMEA', 'LATAM', 'CA', 'US']);
   });
 });
