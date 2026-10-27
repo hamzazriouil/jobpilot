@@ -20,6 +20,9 @@ import {
   draftCall,
   finishAnalysis,
   finishDrafts,
+  finishFollowUp,
+  FOLLOWUP_MAX_CHARS,
+  followUpCall,
   forceProvider,
   parseFallbackModels,
   parseThinkingLevel,
@@ -86,6 +89,24 @@ describe('finishDrafts', () => {
       ctx,
     );
     expect(out.honestyFlags.map((f) => f.text)).toEqual(expect.arrayContaining(['2019']));
+  });
+});
+
+describe('followUpCall / finishFollowUp', () => {
+  it('builds a non-streaming call logged as follow_up', () => {
+    const call = followUpCall({ ...ctx, role: 'AI Engineer', company: 'Quillstack', daysSinceApplied: 5, channel: 'email' });
+    expect(call.task).toBe('follow_up');
+    expect(call.promptVersion).toBe('followup.v1');
+    expect(call.schema.safeParse({ message: 'Hi,' }).success).toBe(true);
+    expect(call.schema.safeParse({ message: '' }).success).toBe(false);
+  });
+
+  it('trims long messages and flags facts missing from the sources', () => {
+    const out = finishFollowUp({ message: `Hi,
+
+I applied in 2019 and shipped Zorblax. ${'word '.repeat(200)}` }, ctx);
+    expect(out.message.length).toBeLessThanOrEqual(FOLLOWUP_MAX_CHARS);
+    expect(out.honestyFlags).toEqual(expect.arrayContaining([{ draft: 'followUp', text: '2019' }]));
   });
 });
 

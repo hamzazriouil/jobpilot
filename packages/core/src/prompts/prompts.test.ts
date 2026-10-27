@@ -21,6 +21,9 @@ import {
   UNTRUSTED_DATA_RULE,
   buildAnalyzePrompt,
   buildDraftPrompt,
+  buildFollowUpPrompt,
+  FOLLOWUP_PROMPT_VERSION,
+  FOLLOWUP_SYSTEM_PROMPT,
   checkTags,
   sanitizeUntrusted,
 } from './index';
@@ -201,6 +204,38 @@ describe('buildDraftPrompt', () => {
     expect(s).toMatch(/copied verbatim from the CV/);
     expect(s).toMatch(/I am writing to express my interest/); // listed as banned
     expect(s).toMatch(/\[Company\]/); // listed as a forbidden placeholder
+  });
+});
+
+describe('buildFollowUpPrompt', () => {
+  const base = { cvText: SAMPLE_CV, jobText: SAMPLE_JOB, role: 'AI Engineer', company: 'Quillstack', daysSinceApplied: 6, channel: 'linkedin' as const };
+
+  it('fences the CV and the job post, and states the application facts outside the fences', () => {
+    const built = buildFollowUpPrompt(base);
+    expect(FOLLOWUP_PROMPT_VERSION).toBe('followup.v1');
+    expect(built.system).toBe(FOLLOWUP_SYSTEM_PROMPT);
+    expect(checkTags(built.prompt, ['cv', 'job_posting'])).toEqual([]);
+    const facts = built.prompt.slice(0, built.prompt.indexOf('<cv>'));
+    expect(facts).toContain('Role: AI Engineer');
+    expect(facts).toContain('Company: Quillstack');
+    expect(facts).toContain('6 days ago');
+    expect(facts).toContain('LinkedIn message');
+  });
+
+  it('handles an unknown date, company and channel', () => {
+    const built = buildFollowUpPrompt({ ...base, company: null, daysSinceApplied: null, channel: null });
+    expect(built.prompt).toContain('Company: not named');
+    expect(built.prompt).toContain('Applied: date unknown');
+    expect(built.prompt).toContain('a short email or message to the recruiter');
+  });
+
+  it('system prompt carries the honesty and injection rules, the length cap and the banned phrases', () => {
+    const s = FOLLOWUP_SYSTEM_PROMPT;
+    expect(s).toContain(HONESTY_RULE);
+    expect(s).toContain(UNTRUSTED_DATA_RULE);
+    expect(s).toMatch(/max 90 words/);
+    expect(s).toMatch(/just following up/);
+    expect(s).toMatch(/{ "message": string }/);
   });
 });
 

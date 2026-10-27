@@ -3,12 +3,13 @@
 // One feed card (docs/03-UI-UX.md §4.5): title · company · location, eligibility + band/score once
 // analyzed, tags, posted date and source attribution with the original link (both required by the
 // source terms, docs/10-SOURCES.md: normal followed links, no nofollow), the one-line summary,
-// and Dismiss / Open / Analyze. "+ Track" joins with the tracker (W16).
+// and Dismiss / Analyze / + Track / Open.
 import { daysAgo, type FeedItem } from '@/lib/feed';
 import { strings } from '@/lib/strings';
 import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { BAND_TONE, TONE_CLASSES, TONE_GLYPH, VERDICT_TONE, type Tone } from '@/components/analyzer/tone';
+import { TrackButton } from '@/components/tracker/track-button';
 
 export type RunState = 'idle' | 'queued' | 'running' | { failed: string };
 
@@ -95,6 +96,7 @@ export function FeedCard({
             {failed ? c.retry : c.analyze}
           </Button>
         )}
+        <TrackButton jobId={item.jobId} tracked={item.tracked ?? false} />
         <a href={`/jobs/${item.jobId}`} className={buttonVariants({ size: 'sm' })}>
           {c.open} →
         </a>

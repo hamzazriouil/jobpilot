@@ -92,6 +92,30 @@ export function supabaseAdmin(env: AppEnv, fetchImpl: typeof fetch = fetch): Sup
   };
 }
 
+/**
+ * Deletes an auth user through the Auth admin API (service role). The user's rows go with it by
+ * cascade (DELETE /api/account). Already deleted (404) counts as done.
+ */
+export async function deleteAuthUser(env: AppEnv, userId: string, fetchImpl: typeof fetch = fetch): Promise<void> {
+  const url = env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, '');
+  const key = env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) throw new SupabaseError('Supabase service role is not configured', null);
+  let res: Response;
+  try {
+    res = await fetchImpl(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'DELETE',
+      headers: { apikey: key, authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (err) {
+    throw new SupabaseError(`Supabase auth delete failed: ${String(err)}`, null);
+  }
+  if (!res.ok && res.status !== 404) {
+    const detail = (await res.text().catch(() => '')).slice(0, 300);
+    throw new SupabaseError(`Supabase DELETE auth user → ${res.status} ${detail}`, res.status);
+  }
+}
+
 function eqQuery(filters: Record<string, string>): string {
   return Object.entries(filters)
     .map(([k, v]) => `${encodeURIComponent(k)}=eq.${encodeURIComponent(v)}`)

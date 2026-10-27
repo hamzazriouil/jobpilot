@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { JobAnalysis, type SavedAnalysis } from '@/components/jobs/job-analysis';
+import { TrackerPanel } from '@/components/tracker/tracker-panel';
+import { logError } from '@/lib/server/http';
+import { utcDay } from '@/lib/server/matching';
 import {
   analysisFromRow,
   loadAnalysis,
@@ -9,13 +12,14 @@ import {
   loadProfileForAnalysis,
   type AnalysisRow,
 } from '@/lib/server/saved-jobs';
+import { loadLatestFollowUp, loadTrackerItems, type SavedFollowUp } from '@/lib/server/tracker';
 import { strings } from '@/lib/strings';
 import { createSupabaseServer, getUser } from '@/lib/supabase/server';
 
 // /jobs/[id] (docs/03-UI-UX.md §4.6): job meta, source attribution and the original link (as the
 // source terms require, docs/10-SOURCES.md: the link is kept unchanged and is a normal followed
-// link), the description, and the saved analysis + drafts (or "Analyze this job").
-// The tracker panel joins on Day 4.
+// link), the description, and the saved analysis + drafts (or "Analyze this job"). From `lg` up
+// the tracker panel (W16) sits in a sticky right column; below that it comes after the header.
 
 export const metadata = { title: 'Job' };
 
@@ -38,10 +42,22 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  const [profile, source] = await Promise.all([
+  const [profile, source, tracked] = await Promise.all([
     loadProfileForAnalysis(supabase, user.id),
     supabase.from('sources').select('name, attribution').eq('id', job.sourceId).maybeSingle(),
+    loadTrackerItems(supabase, user.id, { jobId: job.id }).catch((err: unknown) => {
+      logError('job_tracker_load_failed', err);
+      return [];
+    }),
   ]);
+  const application = tracked[0] ?? null;
+  let followUp: SavedFollowUp | null = null;
+  if (application) {
+    followUp = await loadLatestFollowUp(supabase, application.id).catch((err: unknown) => {
+      logError('job_follow_up_load_failed', err);
+      return null;
+    });
+  }
 
   let saved: SavedAnalysis | null = null;
   let savedDrafts = null;
@@ -84,33 +100,45 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const attribution = source.data?.attribution ?? source.data?.name ?? null;
 
   return (
-    <article>
-      <a href="/feed" className="font-mono text-xs text-subtle hover:text-foreground">
-        ← {s.back}
-      </a>
-      <header className="mt-4 max-w-3xl">
-        <h1 className="text-3xl leading-tight font-bold tracking-[-0.03em] text-balance sm:text-4xl">{job.title}</h1>
-        <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
-          {job.company && <span>{job.company}</span>}
-          {job.locationRaw && <span>{job.locationRaw}</span>}
-          {job.postedAt && <span>{s.postedOn(fmt(job.postedAt))}</span>}
-          <span className="font-mono text-xs leading-5 text-subtle">{pasted ? s.pasted : attribution}</span>
-          {job.url && (
-            <a href={job.url} target="_blank" rel="noopener" className="text-signal-text underline underline-offset-4 hover:text-foreground">
-              {s.original} ↗
-            </a>
-          )}
-        </p>
-        {expired && <p className="mt-3 text-sm text-partial">{s.expired}</p>}
-        {saved && <p className="mt-2 font-mono text-xs text-subtle">{s.savedOn(fmt(saved.createdAt))}</p>}
-      </header>
+    // One column on phones (header, tracker panel, then the job); from `lg` the panel moves to a
+    // sticky right column next to everything else. Rendered once, so its state and #tracker are unique.
+    <article className="grid gap-x-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="min-w-0 lg:col-start-1">
+        <a href="/feed" className="font-mono text-xs text-subtle hover:text-foreground">
+          ← {s.back}
+        </a>
+        <header className="mt-4 max-w-3xl">
+          <h1 className="text-3xl leading-tight font-bold tracking-[-0.03em] text-balance sm:text-4xl">{job.title}</h1>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            {job.company && <span>{job.company}</span>}
+            {job.locationRaw && <span>{job.locationRaw}</span>}
+            {job.postedAt && <span>{s.postedOn(fmt(job.postedAt))}</span>}
+            <span className="font-mono text-xs leading-5 text-subtle">{pasted ? s.pasted : attribution}</span>
+            {job.url && (
+              <a href={job.url} target="_blank" rel="noopener" className="text-signal-text underline underline-offset-4 hover:text-foreground">
+                {s.original} ↗
+              </a>
+            )}
+          </p>
+          {expired && <p className="mt-3 text-sm text-partial">{s.expired}</p>}
+          {saved && <p className="mt-2 font-mono text-xs text-subtle">{s.savedOn(fmt(saved.createdAt))}</p>}
+        </header>
+      </div>
 
-      <details className="mt-6 max-w-3xl rounded-xl border bg-card">
-        <summary className="cursor-pointer px-5 py-3 text-sm font-medium">{s.description}</summary>
-        <div className="border-t px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{job.description}</div>
-      </details>
+      <aside className="mt-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0">
+        <div className="lg:sticky lg:top-24">
+          <TrackerPanel jobId={job.id} application={application} followUp={followUp} today={utcDay(new Date())} />
+        </div>
+      </aside>
 
-      <JobAnalysis jobId={job.id} countryName={countryName} saved={saved} savedDrafts={savedDrafts} hasProfile={profile !== null} />
+      <div className="min-w-0 lg:col-start-1">
+        <details className="mt-6 max-w-3xl rounded-xl border bg-card">
+          <summary className="cursor-pointer px-5 py-3 text-sm font-medium">{s.description}</summary>
+          <div className="border-t px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{job.description}</div>
+        </details>
+
+        <JobAnalysis jobId={job.id} countryName={countryName} saved={saved} savedDrafts={savedDrafts} hasProfile={profile !== null} />
+      </div>
     </article>
   );
 }

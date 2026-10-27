@@ -268,10 +268,13 @@ export const AnalysisResult = AnalysisLLM.extend({
 | `POST /api/jobs` | required | 1 | `{ jobText }` or `{ url }` (P1) | `{ jobId }` (private job, `owner_id` = user) |
 | `GET /api/jobs/:id` | required | 1 | – | `{ job, analysis?, drafts[], application? }` |
 | `POST /api/applications` | required | 1 | `{ jobId, stage? }` | application |
-| `PATCH /api/applications/:id` | required | 1 | `{ stage?, notes?, followUpDueAt?, position? }` | application (writes an `application_events` row when the stage changes) |
+| `PATCH /api/applications/:id` | required | 1 | `{ stage?, channel?, notes?, followUpDueAt?, position?, followedUp? }` | application (writes an `application_events` row when the stage changes; an answer stage or `followedUp` sets `last_contact_at`, `followedUp` moves the next follow-up 5 days out) |
+| `DELETE /api/applications/:id` | required | 1 | – | `{ ok }` (its events and follow-up drafts cascade) |
+| `POST /api/applications/:id/follow-up` | required | 1 | – | `{ followUp: { message, honestyFlags, createdAt } }`, saved as a `follow_up` draft (3/day until W19 plans) |
+| `GET /api/applications/export` | required | 1 | – | `text/csv` download of the pipeline |
 | `GET /api/stats` | required | 1 | – | funnel aggregates |
 | `POST /api/feedback` | optional | 1 | `{ analysisId?, kind, comment? }` | `{ ok }` |
-| `DELETE /api/account` | required | 1 | – | deletes the auth user (cascade) |
+| `DELETE /api/account` | required | 1 | `{ confirm: "DELETE" }` | deletes the auth user (cascade; payments and llm_calls keep their rows with `user_id` null) |
 | `POST /api/checkout` | required | 2 | `{ plan: 'sprint30' \| 'sprint90' }` | `{ checkoutUrl }` |
 | `POST /api/webhooks/dodo` | signature | 2 | Dodo event | `200` (idempotent) |
 | `GET /api/me` | required | 1 | – | `{ user, plan, planEndsAt, usageToday }` |

@@ -4,6 +4,7 @@ export * from './analyze.v1';
 export * from './analyze.v2';
 export * from './analyze-versions';
 export * from './draft.v1';
+export * from './followup.v1';
 export * from './parse.v1';
 export * from './samples';
 export * from './fixtures';

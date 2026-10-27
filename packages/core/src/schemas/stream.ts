@@ -17,7 +17,7 @@ export type ApiError = z.infer<typeof ApiError>;
 
 /** One proper noun, number or year in a draft that does not appear in the CV or the job post. */
 export const HonestyFlag = z.object({
-  draft: z.enum(['coverLetter', 'coldDm', 'cvBullet']),
+  draft: z.enum(['coverLetter', 'coldDm', 'cvBullet', 'followUp']),
   text: z.string(),
 });
 export type HonestyFlag = z.infer<typeof HonestyFlag>;

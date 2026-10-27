@@ -30,6 +30,8 @@ export interface FeedItem {
   url: string | null;
   attribution: Attribution | null;
   analysis: FeedAnalysis | null;
+  /** Already in the user's tracker (the card shows "In tracker" instead of "+ Track"). */
+  tracked?: boolean;
 }
 
 export interface Attribution {

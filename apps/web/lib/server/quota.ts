@@ -21,6 +21,8 @@ export const USER_ANALYZE_DAILY_LIMIT = 5;
 export const PAID_ANALYZE_DAILY_LIMIT = 30;
 /** Draft rewrites of a saved analysis per signed-in free user per day (§9 "draft regenerate"). */
 export const USER_DRAFT_REDO_DAILY_LIMIT = 3;
+/** Follow-up messages per signed-in user per day (W16; plan-based limits come with W19). */
+export const USER_FOLLOW_UP_DAILY_LIMIT = 3;
 /** CV parses per signed-in free user per day (§9). */
 export const USER_PARSE_DAILY_LIMIT = 5;
 /** Magic-link emails per anonymous subject per day (protects the SMTP quota). */

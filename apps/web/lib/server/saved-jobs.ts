@@ -157,9 +157,14 @@ export async function loadAnalysisById(supabase: SupabaseClient, analysisId: str
 
 // ── drafts ──
 
-type DraftKind = 'cover_letter' | 'cold_dm' | 'cv_bullets';
+type DraftKind = 'cover_letter' | 'cold_dm' | 'cv_bullets' | 'follow_up';
 
-const FLAG_KIND: Record<HonestyFlag['draft'], DraftKind> = { coverLetter: 'cover_letter', coldDm: 'cold_dm', cvBullet: 'cv_bullets' };
+const FLAG_KIND: Record<HonestyFlag['draft'], DraftKind> = {
+  coverLetter: 'cover_letter',
+  coldDm: 'cold_dm',
+  cvBullet: 'cv_bullets',
+  followUp: 'follow_up',
+};
 
 /** Three `drafts` rows (one per kind), each with its own honesty flags. cv_bullets is JSON text. */
 export function draftsToRows(event: DraftResultEvent, meta: { userId: string; analysisId: string; provider: string; model: string; promptVersion: string }) {

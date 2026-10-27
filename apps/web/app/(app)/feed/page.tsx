@@ -20,6 +20,7 @@ import {
   type FreshJobs,
 } from '@/lib/server/matching';
 import { supabaseAdmin } from '@/lib/server/supabase';
+import { trackedJobIds } from '@/lib/server/tracker';
 import { strings } from '@/lib/strings';
 import { createSupabaseServer, getUser } from '@/lib/supabase/server';
 
@@ -115,6 +116,10 @@ export default async function FeedPage() {
 
   const analyses = new Map<string, FeedAnalysis>();
   const analysisIds = [...matches.map((m) => m.job_id), ...freshRows.map((j) => j.id)];
+  const tracked = await trackedJobIds(supabase, user.id, analysisIds).catch((err: unknown) => {
+    logError('feed_tracked_failed', err);
+    return new Set<string>();
+  });
   if (analysisIds.length > 0) {
     const { data, error } = await supabase
       .from('analyses')
@@ -149,6 +154,7 @@ export default async function FeedPage() {
     url: j.url,
     attribution: parseAttribution(j.sources?.attribution ?? j.sources?.name ?? null),
     analysis: analyses.get(jobId) ?? null,
+    tracked: tracked.has(jobId),
   });
   const items = matches.map((m) => toItem(m.job_id, m.jobs!, m.match_date, m.dismissed));
   const freshItems = freshRows.map((j) => toItem(j.id, j, today, false));
